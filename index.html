@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>오삼 보물찾기 - CRAZY ARCADE</title>
+    <title>크레이지 아케이드 - 보물찾기</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Orbitron:wght=700&display=swap');
         
@@ -26,15 +26,15 @@
             margin: 5px 0 10px 0;
         }
 
-        .char-grid {
-            display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-height: 300px; overflow-y: auto; margin-bottom: 12px; padding-right: 4px;
+        .select-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-height: 240px; overflow-y: auto; margin-bottom: 12px; padding-right: 4px;
         }
-        .char-card {
+        .select-card {
             background: rgba(255,255,255,0.05); border: 2px solid #555; border-radius: 10px;
             padding: 8px; cursor: pointer; display: flex; align-items: center; gap: 10px; text-align: left;
         }
-        .char-card.selected { border-color: #ff0077; background: rgba(255,0,119,0.2); }
-        .char-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ffea00; object-fit: cover; flex-shrink: 0; }
+        .select-card.selected { border-color: #ff0077; background: rgba(255,0,119,0.2); }
+        .card-img { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ffea00; object-fit: cover; flex-shrink: 0; }
 
         .map-grid {
             display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px;
@@ -44,7 +44,7 @@
             aspect-ratio: 1; background: #166534; border: 1px solid #14532d;
             display: flex; justify-content: center; align-items: center; font-size: 9px; cursor: pointer; position: relative;
         }
-        .map-cell.revealed { background: #22c55e !important; } /* 지나간 칸 밝은 초록색 */
+        .map-cell.revealed { background: #22c55e !important; }
         .map-cell.movable { background: #facc15; animation: pulseCell 0.8s infinite alternate; } 
         .map-cell.approachable { background: #0284c7; animation: pulseApproach 0.8s infinite alternate; } 
         .map-cell.start-select { border: 2px dashed #ffea00; background: #ca8a04; }
@@ -93,41 +93,51 @@
 
     <div class="app-container">
 
-        <!-- 1. 캐릭터 선택 및 시작 위치 지정 -->
+        <!-- 1. 캐릭터 선택 및 시작 위치 지정 화면 -->
         <div id="setup-screen" class="arcade-box">
-            <div class="title-flash">💧 오삼 보물찾기 💧</div>
+            <div class="title-flash">💧 크레이지 아케이드 💧</div>
             <div id="setup-instruction" style="font-size:0.85rem; color:#00f0ff; margin-bottom:10px;">
-                1️⃣ 탐험할 캐릭터를 선택하세요!
+                1️⃣ 캐릭터를 골라주세요! (이름 선택)
             </div>
 
-            <div class="char-grid" id="char-select-container"></div>
-            
-            <div id="map-select-container" style="display:none;">
+            <!-- 1단계: 이름 선택 그리드 -->
+            <div class="select-grid" id="name-select-container"></div>
+
+            <!-- 2단계: 크아 캐릭터 선택 그리드 (처음에 숨김) -->
+            <div id="char-select-section" style="display:none;">
                 <div style="font-size:0.85rem; color:#ffea00; margin-bottom:6px;">
-                    2️⃣ 9x9 맵에서 시작할 위치를 선택하세요!
+                    2️⃣ 게임 캐릭터를 골라주세요!
+                </div>
+                <div class="select-grid" id="char-select-container"></div>
+            </div>
+            
+            <!-- 3단계: 시작 위치 선택 맵 (처음에 숨김) -->
+            <div id="map-select-section" style="display:none;">
+                <div style="font-size:0.85rem; color:#ffea00; margin-bottom:6px;">
+                    3️⃣ 9x9 맵에서 시작할 위치를 선택하세요!
                 </div>
                 <div class="map-grid" id="setup-map-grid" style="max-width:320px; margin: 0 auto;"></div>
             </div>
 
             <button class="btn-main" id="start-adventure-btn" onclick="confirmAdventureStart()" disabled>
-                탐험을 시작하세요!
+                게임 시작하기!
             </button>
             <br>
             <button class="admin-reset-btn" onclick="adminReset()">🛠️ 관리자: 데이터 초기화</button>
         </div>
 
-        <!-- 2. 실시간 탐험 게임 본 화면 -->
+        <!-- 2. 실시간 게임 본 화면 -->
         <div id="game-screen" class="arcade-box" style="display:none;">
             <div class="user-top-bar" style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.3); padding:8px; border-radius:8px; margin-bottom:10px;">
                 <div style="display:flex; align-items:center; gap:6px;">
                     <img id="my-game-avatar" style="width:28px; height:28px; border-radius:50%; border:1px solid #ffea00;" alt="avatar">
-                    <span style="font-size:0.95rem;"><b id="my-game-name" style="color:#ffea00;">--</b> 탐험가</span>
+                    <span style="font-size:0.95rem;"><b id="my-game-info" style="color:#ffea00;">-- --</b></span>
                 </div>
-                <span id="player-status-badge" style="font-size:0.75rem; background:#15803d; padding:3px 8px; border-radius:10px;">탐험 중 🟢</span>
+                <span id="player-status-badge" style="font-size:0.75rem; background:#15803d; padding:3px 8px; border-radius:10px;">게임 중 🟢</span>
             </div>
 
-            <div class="title-flash" style="font-size:1.4rem;">🗺️ 주간 CR 30% 목표 맵</div>
-            <div id="move-instruction" style="font-size:0.85rem; color:#ffea00; margin-bottom:4px;">[ 판매 또는 어프로치 버튼을 눌러 행동하세요! ]</div>
+            <div class="title-flash" style="font-size:1.4rem;">이번주 GOAL = CR 30%</div>
+            <div id="move-instruction" style="font-size:0.85rem; color:#00f0ff; margin-bottom:4px;">[ 판매 또는 어프로치 버튼을 눌러 행동하세요! ]</div>
 
             <div class="map-grid" id="game-map-grid"></div>
 
@@ -137,11 +147,11 @@
             </div>
 
             <div style="margin-top:15px; background:rgba(0,0,0,0.4); padding:10px; border-radius:10px; border:1px solid #00f0ff;">
-                <div style="font-size:0.9rem; color:#ffea00; margin-bottom:6px;">🏆 탐험대 전기간 누적 대시보드</div>
+                <div style="font-size:0.9rem; color:#ffea00; margin-bottom:6px;">🏆 크아 전기간 누적 대시보드</div>
                 <table class="dashboard-table">
                     <thead>
                         <tr>
-                            <th>탐험가</th>
+                            <th>플레이어</th>
                             <th>어프로치</th>
                             <th>판매</th>
                             <th>보물발견</th>
@@ -158,7 +168,6 @@
     </div>
 
 <script>
-    // 🔗 파이어베이스 실시간 데이터베이스 URL
     const FIREBASE_URL = "https://arcade-2ed34-default-rtdb.firebaseio.com/"; 
     
     function getTodayString() {
@@ -170,51 +179,86 @@
     }
     const todayStr = getTodayString();
 
-    const teamMembers = [
-        { name: "윤정", avatar: "avatar_1.PNG" },
-        { name: "유진", avatar: "avatar_2.PNG" },
-        { name: "지인", avatar: "avatar_3.PNG" },
-        { name: "혜인", avatar: "avatar_4.PNG" },
-        { name: "성경", avatar: "avatar_5.PNG" },
-        { name: "채령", avatar: "avatar_6.PNG" },
-        { name: "주하", avatar: "avatar_7.PNG" },
-        { name: "정환", avatar: "avatar_8.PNG" },
-        { name: "선우", avatar: "avatar_9.PNG" },
-        { name: "재민", avatar: "avatar_10.PNG" }
+    // 팀원 이름 11명 (기존 10명 + 한솔)
+    const teamNames = ["윤정", "유진", "지인", "혜인", "성경", "채령", "주하", "정환", "선우", "재민", "한솔"];
+    
+    // 크아 캐릭터 8종 (이름과 이미지 파일 매칭)
+    const arcadeCharacters = [
+        { name: "다오", img: "다오.PNG" },
+        { name: "디지니", img: "디지니.PNG" },
+        { name: "마리드", img: "마리드.PNG" },
+        { name: "모스", img: "모스.PNG" },
+        { name: "배찌", img: "배찌.PNG" },
+        { name: "에띠", img: "에띠.PNG" },
+        { name: "우니", img: "우니.PNG" },
+        { name: "케피", img: "케피.PNG" }
     ];
 
-    let selectedChar = null;
+    let selectedName = null;
+    let selectedCharObj = null;
     let selectedStartPos = null;
-    let myName = localStorage.getItem('osam_treasure_user');
+    let myName = localStorage.getItem('arcade_treasure_user');
     let myMovesLeft = 0;        
     let myApproachesLeft = 0;   
 
     function initSetup() {
-        const grid = document.getElementById('char-select-container');
-        if (!grid) return;
-        grid.innerHTML = "";
-        
-        teamMembers.forEach((m, idx) => {
-            grid.innerHTML += `
-                <div class="char-card" id="char-card-${idx}" onclick="selectCharCard('${m.name}', '${m.avatar}', ${idx})">
-                    <img class="char-avatar" src="${m.avatar}" onerror="this.src='https://img.icons8.com/color/48/circled-user-female-skin-type-4--v1.png'" alt="avatar">
-                    <span><b>${m.name}</b></span>
-                </div>
-            `;
-        });
-
+        renderNameSelection();
         if (myName) {
             checkUserAlreadyStarted();
         }
     }
 
-    function selectCharCard(name, avatar, idx) {
-        document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
-        document.getElementById(`char-card-${idx}`).classList.add('selected');
-        selectedChar = { name, avatar };
+    // 1단계: 이름 선택 리스트 렌더링
+    function renderNameSelection() {
+        const grid = document.getElementById('name-select-container');
+        if (!grid) return;
+        grid.innerHTML = "";
+        
+        teamNames.forEach((name, idx) => {
+            grid.innerHTML += `
+                <div class="select-card" id="name-card-${idx}" onclick="selectNameItem('${name}', ${idx})">
+                    <div style="width:36px; height:36px; border-radius:50%; background:#00f0ff; color:#000; display:flex; justify-content:center; align-items:center; font-weight:bold;">👤</div>
+                    <span><b>${name}</b></span>
+                </div>
+            `;
+        });
+    }
 
-        document.getElementById('setup-instruction').innerText = "2️⃣ 9x9 맵에서 시작할 위치를 선택하세요!";
-        document.getElementById('map-select-container').style.display = 'block';
+    function selectNameItem(name, idx) {
+        document.querySelectorAll('#name-select-container .select-card').forEach(c => c.classList.remove('selected'));
+        document.getElementById(`name-card-${idx}`).classList.add('selected');
+        selectedName = name;
+
+        // 2단계 크아 캐릭터 선택 화면 노출
+        document.getElementById('setup-instruction').innerText = "2️⃣ 게임 캐릭터를 골라주세요!";
+        document.getElementById('char-select-section').style.display = 'block';
+        renderCharSelection();
+    }
+
+    // 2단계: 크아 캐릭터 선택 리스트 렌더링
+    function renderCharSelection() {
+        const grid = document.getElementById('char-select-container');
+        if (!grid) return;
+        grid.innerHTML = "";
+
+        arcadeCharacters.forEach((char, idx) => {
+            grid.innerHTML += `
+                <div class="select-card" id="char-card-${idx}" onclick="selectCharItem('${char.name}', '${char.img}', ${idx})">
+                    <img class="card-img" src="${char.img}" onerror="this.src='https://img.icons8.com/color/48/circled-user-female-skin-type-4--v1.png'" alt="${char.name}">
+                    <span><b>${char.name}</b></span>
+                </div>
+            `;
+        });
+    }
+
+    function selectCharItem(charName, charImg, idx) {
+        document.querySelectorAll('#char-select-container .select-card').forEach(c => c.classList.remove('selected'));
+        document.getElementById(`char-card-${idx}`).classList.add('selected');
+        selectedCharObj = { name: charName, img: charImg };
+
+        // 3단계 시작 위치 맵 선택 화면 노출
+        document.getElementById('setup-instruction').innerText = "3️⃣ 9x9 맵에서 시작할 위치를 선택하세요!";
+        document.getElementById('map-select-section').style.display = 'block';
         renderSetupMap();
     }
 
@@ -231,21 +275,22 @@
                 cell.classList.add('start-select');
                 selectedStartPos = i;
                 document.getElementById('start-adventure-btn').disabled = false;
-                document.getElementById('start-adventure-btn').innerText = `[${selectedChar.name}] 시작 위치(${i}번 칸)로 탐험 시작!`;
+                document.getElementById('start-adventure-btn').innerText = `[${selectedName} / ${selectedCharObj.name}] 시작하기!`;
             };
             mapGrid.appendChild(cell);
         }
     }
 
     function confirmAdventureStart() {
-        if (!selectedChar || selectedStartPos === null) return;
-        myName = selectedChar.name;
-        localStorage.setItem('osam_treasure_user', myName);
+        if (!selectedName || !selectedCharObj || selectedStartPos === null) return;
+        myName = selectedName;
+        localStorage.setItem('arcade_treasure_user', myName);
 
-        fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`).then(res => res.json()).then(existing => {
+        fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`).then(res => res.json()).then(existing => {
             const playerData = {
                 name: myName,
-                avatar: selectedChar.avatar,
+                characterName: selectedCharObj.name,
+                avatar: selectedCharObj.img,
                 position: Number(selectedStartPos) || 0,
                 status: 'active',
                 trap_count: 0,
@@ -255,7 +300,7 @@
                 total_won: existing && existing.total_won !== undefined ? Number(existing.total_won) : 0
             };
 
-            fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`, {
+            fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`, {
                 method: 'PUT',
                 body: JSON.stringify(playerData)
             }).then(() => {
@@ -265,16 +310,15 @@
         });
     }
 
-    // 지나간 칸 배열에 안전하게 추가하는 함수
     function markCellRevealed(pos) {
-        fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
+        fetch(`${FIREBASE_URL}arcade_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
             mapData = mapData || { cells: {}, revealed: [] };
             let revList = mapData.revealed || [];
             if (!revList.includes(pos)) {
                 revList.push(pos);
             }
             mapData.revealed = revList;
-            fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`, {
+            fetch(`${FIREBASE_URL}arcade_treasure_map/${todayStr}.json`, {
                 method: 'PUT',
                 body: JSON.stringify(mapData)
             });
@@ -282,20 +326,21 @@
     }
 
     function checkUserAlreadyStarted() {
-        fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`).then(res => res.json()).then(data => {
+        fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`).then(res => res.json()).then(data => {
             if (data && data.position !== undefined && data.name) {
-                selectedChar = { name: data.name, avatar: data.avatar };
+                selectedName = data.name;
+                selectedCharObj = { name: data.characterName, img: data.avatar };
                 startMainGame();
             } else {
-                localStorage.removeItem('osam_treasure_user');
+                localStorage.removeItem('arcade_treasure_user');
             }
         }).catch(() => {
-            localStorage.removeItem('osam_treasure_user');
+            localStorage.removeItem('arcade_treasure_user');
         });
     }
 
     function checkAndInitDailyMap() {
-        fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
+        fetch(`${FIREBASE_URL}arcade_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
             if (!mapData || !mapData.cells) {
                 let indices = Array.from({length: 81}, (_, i) => i);
                 indices.sort(() => Math.random() - 0.5);
@@ -310,7 +355,7 @@
                     revealed: []
                 };
 
-                fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`, {
+                fetch(`${FIREBASE_URL}arcade_treasure_map/${todayStr}.json`, {
                     method: 'PUT',
                     body: JSON.stringify(initialMap)
                 }).then(() => startMainGame());
@@ -323,9 +368,9 @@
     function startMainGame() {
         document.getElementById('setup-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
-        if (selectedChar) {
-            document.getElementById('my-game-avatar').src = selectedChar.avatar;
-            document.getElementById('my-game-name').innerText = myName;
+        if (selectedCharObj) {
+            document.getElementById('my-game-avatar').src = selectedCharObj.img;
+            document.getElementById('my-game-info').innerText = `${selectedName} ${selectedCharObj.name}`;
         }
 
         syncGameData();
@@ -334,8 +379,8 @@
 
     function syncGameData() {
         Promise.all([
-            fetch(`${FIREBASE_URL}osam_treasure_users.json`).then(res => res.json()),
-            fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json())
+            fetch(`${FIREBASE_URL}arcade_treasure_users.json`).then(res => res.json()),
+            fetch(`${FIREBASE_URL}arcade_treasure_map/${todayStr}.json`).then(res => res.json())
         ]).then(([players, mapData]) => {
             mapData = mapData || { cells: {}, revealed: [] };
             renderGameMap(players || {}, mapData);
@@ -358,7 +403,7 @@
             badge.innerText = `조사 가능 (${myApproachesLeft}회) 🔍`;
             badge.style.background = '#0284c7';
         } else {
-            badge.innerText = '탐험 중 🟢';
+            badge.innerText = '게임 중 🟢';
             badge.style.background = '#15803d';
         }
     }
@@ -375,7 +420,7 @@
 
         const remainingTreasures = Object.values(cellsInfo).filter(val => val === 'treasure').length;
         if (remainingTreasures === 0 && Object.keys(cellsInfo).length > 0) {
-            document.getElementById('move-instruction').innerHTML = "🏆 <b style='color:#ffea00;'>모든 보물을 찾았습니다! 오늘 탐험 완료!</b>";
+            document.getElementById('move-instruction').innerHTML = "🏆 <b style='color:#ffea00;'>모든 보물을 찾았습니다! 게임 완료!</b>";
         } else {
             let guideMsg = "[ 판매 또는 어프로치 버튼을 눌러 행동하세요! ]";
             if (myMovesLeft > 0) {
@@ -390,32 +435,27 @@
             const cell = document.createElement('div');
             cell.className = 'map-cell';
             
-            // 지나간 칸 목록에 포함되어 있으면 밝은 초록색 적용
             if (revealedList.includes(i) || revealedList.includes(String(i))) {
                 cell.classList.add('revealed');
             }
 
-            // 이동 모드일 때 인접 칸 하이라이트
             if (myMovesLeft > 0 && myPos !== null && isAdjacent(myPos, i)) {
                 cell.classList.add('movable');
                 cell.onclick = () => executeMove(i);
-            } 
-            // 어프로치 모드일 때 맵 전체(81칸 중 아무 곳이나) 하이라이트 및 클릭 조사 가능
-            else if (myApproachesLeft > 0) {
+            } else if (myApproachesLeft > 0) {
                 cell.classList.add('approachable');
                 cell.onclick = () => executeApproach(i);
             } else {
                 cell.onclick = null;
             }
 
-            // 플레이어 토큰 배치
             if (players) {
                 Object.values(players).forEach(p => {
                     if (p && Number(p.position) === i && p.name) {
                         const token = document.createElement('img');
                         token.className = `player-token ${p.status === 'trapped' ? 'trapped' : ''}`;
-                        token.src = p.avatar || 'avatar_1.PNG';
-                        token.title = p.name;
+                        token.src = p.avatar || '다오.PNG';
+                        token.title = `${p.name} (${p.characterName})`;
                         token.alt = "token";
                         cell.appendChild(token);
                     }
@@ -435,15 +475,14 @@
     function executeMove(targetIdx) {
         if (myMovesLeft <= 0 || !myName) return;
 
-        fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
+        fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
             if (!me) return;
             me.position = targetIdx;
             myMovesLeft--;
 
-            // 서버에 지나간 칸 즉시 기록
             markCellRevealed(targetIdx);
 
-            fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
+            fetch(`${FIREBASE_URL}arcade_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
                 mapData = mapData || { cells: {}, revealed: [] };
                 const cellsInfo = mapData.cells || {};
                 const cellType = cellsInfo[targetIdx];
@@ -451,7 +490,6 @@
                 if (cellType === 'treasure') {
                     me.treasure_found = (Number(me.treasure_found) || 0) + 1;
                     
-                    // 코스머니 1,000원, 2,000원, 3,000원 중 동일 확률로 랜덤 보상 선택
                     const rewards = [1000, 2000, 3000];
                     const randomReward = rewards[Math.floor(Math.random() * rewards.length)];
                     me.total_won = (Number(me.total_won) || 0) + randomReward;
@@ -483,8 +521,8 @@
                 mapData.cells = cellsInfo;
 
                 Promise.all([
-                    fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`, { method: 'PUT', body: JSON.stringify(me) }),
-                    fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`, { method: 'PUT', body: JSON.stringify(mapData) })
+                    fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`, { method: 'PUT', body: JSON.stringify(me) }),
+                    fetch(`${FIREBASE_URL}arcade_treasure_map/${todayStr}.json`, { method: 'PUT', body: JSON.stringify(mapData) })
                 ]).then(() => syncGameData());
             });
         });
@@ -493,7 +531,7 @@
     function executeApproach(targetIdx) {
         if (myApproachesLeft <= 0 || !myName) return;
 
-        fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
+        fetch(`${FIREBASE_URL}arcade_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
             mapData = mapData || { cells: {}, revealed: [] };
             const cellsInfo = mapData.cells || {};
             const cellType = cellsInfo[targetIdx];
@@ -522,7 +560,7 @@
         tbody.innerHTML = "";
         
         if (!players || Object.keys(players).length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="color:#aaa; text-align:center;">아직 탐험가가 없습니다.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" style="color:#aaa; text-align:center;">아직 플레이어가 없습니다.</td></tr>`;
             return;
         }
 
@@ -536,7 +574,7 @@
         sorted.forEach((p, idx) => {
             tbody.innerHTML += `
                 <tr style="${p.name === myName ? 'background:rgba(0,240,255,0.1); font-weight:bold;' : ''}">
-                    <td>${idx+1}위 ${p.name}</td>
+                    <td>${p.name} (${p.characterName})</td>
                     <td>${p.approach_count || 0}</td>
                     <td>${p.sale_count || 0}</td>
                     <td>🎁 ${p.treasure_found || 0}</td>
@@ -548,14 +586,14 @@
 
     function doApproach() {
         if (!myName) return;
-        fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
+        fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
             if(!me) { alert("플레이어 정보를 찾을 수 없습니다."); return; }
             me.approach_count = (Number(me.approach_count) || 0) + 1;
             myApproachesLeft += 1;
             
             alert("🔍 어프로치 성공! 맵 전체 중 조사하고 싶은 칸을 아무 곳이나 클릭하세요.");
 
-            fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`, {
+            fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`, {
                 method: 'PUT',
                 body: JSON.stringify(me)
             }).then(() => syncGameData());
@@ -564,7 +602,7 @@
 
     function doSale() {
         if (!myName) return;
-        fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
+        fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
             if(!me) { alert("플레이어 정보를 찾을 수 없습니다."); return; }
             
             me.position = Number(me.position) || 0;
@@ -579,7 +617,7 @@
                 } else {
                     alert(`💧 판매 1회 완료! 함정 탈출까지 앞으로 판매 1번 남았습니다.`);
                 }
-                fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`, { method: 'PUT', body: JSON.stringify(me) }).then(() => syncGameData());
+                fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`, { method: 'PUT', body: JSON.stringify(me) }).then(() => syncGameData());
                 return;
             }
 
@@ -587,7 +625,7 @@
             myMovesLeft += 1;
             alert(`👣 판매 성공! 이동권 +1회 획득! 맵에서 이동할 인접한 칸을 클릭하세요.`);
 
-            fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`, {
+            fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`, {
                 method: 'PUT',
                 body: JSON.stringify(me)
             }).then(() => syncGameData());
@@ -599,11 +637,11 @@
         if (pwd === "253253") {
             if (confirm("정말로 모든 데이터를 초기화하시겠습니까?")) {
                 Promise.all([
-                    fetch(`${FIREBASE_URL}osam_treasure_users.json`, { method: 'DELETE' }),
-                    fetch(`${FIREBASE_URL}osam_treasure_map.json`, { method: 'DELETE' })
+                    fetch(`${FIREBASE_URL}arcade_treasure_users.json`, { method: 'DELETE' }),
+                    fetch(`${FIREBASE_URL}arcade_treasure_map.json`, { method: 'DELETE' })
                 ]).then(() => {
                     alert("초기화 완료!");
-                    localStorage.removeItem('osam_treasure_user');
+                    localStorage.removeItem('arcade_treasure_user');
                     location.reload();
                 });
             }
