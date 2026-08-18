@@ -27,14 +27,14 @@
         }
 
         .char-grid {
-            display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-height: 300px; overflow-y: auto; margin-bottom: 12px;
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-height: 300px; overflow-y: auto; margin-bottom: 12px; padding-right: 4px;
         }
         .char-card {
             background: rgba(255,255,255,0.05); border: 2px solid #555; border-radius: 10px;
-            padding: 8px; cursor: pointer; display: flex; align-items: center; gap: 10px;
+            padding: 8px; cursor: pointer; display: flex; align-items: center; gap: 10px; text-align: left;
         }
         .char-card.selected { border-color: #ff0077; background: rgba(255,0,119,0.2); }
-        .char-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ffea00; object-fit: cover; }
+        .char-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ffea00; object-fit: cover; flex-shrink: 0; }
 
         .map-grid {
             display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px;
@@ -44,9 +44,9 @@
             aspect-ratio: 1; background: #166534; border: 1px solid #14532d;
             display: flex; justify-content: center; align-items: center; font-size: 9px; cursor: pointer; position: relative;
         }
-        .map-cell.revealed { background: #22c55e; } /* 밝혀진 칸 색상 */
-        .map-cell.movable { background: #facc15; animation: pulseCell 0.8s infinite alternate; } /* 이동 가능 칸 */
-        .map-cell.approachable { background: #0284c7; animation: pulseApproach 0.8s infinite alternate; } /* 어프로치 가능 칸 */
+        .map-cell.revealed { background: #22c55e; } 
+        .map-cell.movable { background: #facc15; animation: pulseCell 0.8s infinite alternate; } 
+        .map-cell.approachable { background: #0284c7; animation: pulseApproach 0.8s infinite alternate; } 
         .map-cell.start-select { border: 2px dashed #ffea00; background: #ca8a04; }
 
         @keyframes pulseCell {
@@ -70,6 +70,8 @@
             border: none; border-radius: 8px; color: #000; font-family: 'Black Han Sans', sans-serif;
             font-size: 1.1rem; cursor: pointer; box-shadow: 0 4px 0 #b30054; margin-top: 6px;
         }
+        .btn-main:disabled { background: #444; color: #888; box-shadow: none; cursor: not-allowed; }
+
         .btn-action {
             flex: 1; padding: 10px; background: linear-gradient(135deg, #00f0ff, #0077ff);
             border: none; border-radius: 8px; color: #fff; font-family: 'Black Han Sans', sans-serif;
@@ -184,8 +186,8 @@
     let selectedChar = null;
     let selectedStartPos = null;
     let myName = localStorage.getItem('osam_treasure_user');
-    let myMovesLeft = 0;        // 남은 이동 가능 횟수
-    let myApproachesLeft = 0;   // 남은 어프로치 조사 횟수
+    let myMovesLeft = 0;        
+    let myApproachesLeft = 0;   
 
     function initSetup() {
         const grid = document.getElementById('char-select-container');
@@ -368,10 +370,9 @@
         const myData = players[myName];
         const myPos = myData ? Number(myData.position) : null;
 
-        // 보물 개수 체크 (자동 종료 조건)
         const remainingTreasures = Object.values(cellsInfo).filter(val => val === 'treasure').length;
         if (remainingTreasures === 0 && Object.keys(cellsInfo).length > 0) {
-            document.getElementById('move-instruction.innerHTML = "🏆 <b style=\'color:#ffea00;\'>모든 보물을 찾았습니다! 오늘 탐험 완료!</b>";
+            document.getElementById('move-instruction').innerHTML = "🏆 <b style='color:#ffea00;'>모든 보물을 찾았습니다! 오늘 탐험 완료!</b>";
         } else {
             let guideMsg = "[ 판매 또는 어프로치 버튼을 눌러 행동하세요! ]";
             if (myMovesLeft > 0) {
@@ -386,25 +387,20 @@
             const cell = document.createElement('div');
             cell.className = 'map-cell';
             
-            // 지나간 칸(revealed) 색상 적용
             if (revealedList.includes(i)) {
                 cell.classList.add('revealed');
             }
 
-            // 이동 모드일 때 인접 칸 하이라이트
             if (myMovesLeft > 0 && myPos !== null && isAdjacent(myPos, i)) {
                 cell.classList.add('movable');
                 cell.onclick = () => executeMove(i);
-            } 
-            // 어프로치 모드일 때 인접 칸 하이라이트
-            else if (myApproachesLeft > 0 && myPos !== null && isAdjacent(myPos, i)) {
+            } else if (myApproachesLeft > 0 && myPos !== null && isAdjacent(myPos, i)) {
                 cell.classList.add('approachable');
                 cell.onclick = () => executeApproach(i);
             } else {
                 cell.onclick = null;
             }
 
-            // 플레이어 토큰 배치
             if (players) {
                 Object.values(players).forEach(p => {
                     if (p && Number(p.position) === i && p.name) {
@@ -422,14 +418,12 @@
         }
     }
 
-    // 8방향 인접 체크 함수
     function isAdjacent(pos1, pos2) {
         const r1 = Math.floor(pos1 / 9), c1 = pos1 % 9;
         const r2 = Math.floor(pos2 / 9), c2 = pos2 % 9;
         return Math.abs(r1 - r2) <= 1 && Math.abs(c1 - c2) <= 1 && pos1 !== pos2;
     }
 
-    // 이동 실행
     function executeMove(targetIdx) {
         if (myMovesLeft <= 0 || !myName) return;
 
@@ -449,12 +443,12 @@
                     me.treasure_found = (Number(me.treasure_found) || 0) + 1;
                     me.total_won = (Number(me.total_won) || 0) + 1000;
                     alert(`🎁 대박! ${targetIdx}번 칸에서 보물을 발견했습니다! 상금 +1,000원 획득!`);
-                    delete cellsInfo[targetIdx]; // 보물 소멸
+                    delete cellsInfo[targetIdx]; 
                 } else if (cellType === 'trap') {
                     me.status = 'trapped';
                     me.trap_count = 0;
                     alert(`💥 함정에 빠졌습니다! 물풍선에 갇혔습니다! 탈출하려면 판매(Sale)를 2번 성공해야 합니다.`);
-                    delete cellsInfo[targetIdx]; // 함정 소멸
+                    delete cellsInfo[targetIdx]; 
                 } else if (cellType === 'event') {
                     const randEvt = Math.floor(Math.random() * 3);
                     if (randEvt === 0) {
@@ -467,7 +461,7 @@
                         myMovesLeft += 1;
                         alert(`✨ [이벤트 당첨!] 행운의 보너스! 추가 이동 횟수 +1회 획득!`);
                     }
-                    delete cellsInfo[targetIdx]; // 이벤트 소멸
+                    delete cellsInfo[targetIdx]; 
                 } else {
                     alert(`👣 ${targetIdx}번 칸으로 이동했습니다.`);
                 }
@@ -482,7 +476,6 @@
         });
     }
 
-    // 어프로치 클릭 조사 실행
     function executeApproach(targetIdx) {
         if (myApproachesLeft <= 0 || !myName) return;
 
@@ -540,7 +533,6 @@
         });
     }
 
-    // 어프로치 버튼 클릭 (조사권 획득)
     function doApproach() {
         if (!myName) return;
         fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
@@ -557,7 +549,6 @@
         });
     }
 
-    // 판매 성공 버튼 클릭 (이동권 획득)
     function doSale() {
         if (!myName) return;
         fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
