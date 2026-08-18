@@ -143,7 +143,7 @@
     </div>
 
 <script>
-    // 🔗 본인의 파이어베이스 실시간 데이터베이스 URL을 아래에 정확히 넣어주세요!
+    // 🔗 파이어베이스 실시간 데이터베이스 URL
     const FIREBASE_URL = "https://arcade-2ed34-default-rtdb.firebaseio.com/"; 
     
     function getTodayString() {
@@ -174,7 +174,9 @@
 
     function initSetup() {
         const grid = document.getElementById('char-select-container');
+        if (!grid) return;
         grid.innerHTML = "";
+        
         teamMembers.forEach((m, idx) => {
             grid.innerHTML += `
                 <div class="char-card" id="char-card-${idx}" onclick="selectCharCard('${m.name}', '${m.avatar}', ${idx})">
@@ -184,6 +186,7 @@
             `;
         });
 
+        // 자동 로그인 방지 및 강제 셋업 진입을 원하시면 아래 주석을 해제하거나 관리자 초기화를 이용하세요
         if (myName) {
             checkUserAlreadyStarted();
         }
@@ -201,6 +204,7 @@
 
     function renderSetupMap() {
         const mapGrid = document.getElementById('setup-map-grid');
+        if (!mapGrid) return;
         mapGrid.innerHTML = "";
         for (let i = 0; i < 81; i++) {
             const cell = document.createElement('div');
@@ -246,10 +250,15 @@
 
     function checkUserAlreadyStarted() {
         fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`).then(res => res.json()).then(data => {
-            if (data && data.position !== undefined) {
+            if (data && data.position !== undefined && data.name) {
                 selectedChar = { name: data.name, avatar: data.avatar };
                 startMainGame();
+            } else {
+                // 데이터가 비어있거나 꼬인 경우 강제로 셋업 화면 유지
+                localStorage.removeItem('osam_treasure_user');
             }
+        }).catch(() => {
+            localStorage.removeItem('osam_treasure_user');
         });
     }
 
@@ -277,8 +286,10 @@
     function startMainGame() {
         document.getElementById('setup-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
-        document.getElementById('my-game-avatar').src = selectedChar.avatar;
-        document.getElementById('my-game-name').innerText = myName;
+        if (selectedChar) {
+            document.getElementById('my-game-avatar').src = selectedChar.avatar;
+            document.getElementById('my-game-name').innerText = myName;
+        }
 
         syncGameData();
         setInterval(syncGameData, 3000);
@@ -292,12 +303,13 @@
             renderGameMap(players || {}, mapInfo || {});
             renderDashboard(players || {});
             updateMyStatus(players && players[myName] ? players[myName] : null);
-        });
+        }).catch(err => console.log("Sync error:", err));
     }
 
     function updateMyStatus(me) {
         if (!me) return;
         const badge = document.getElementById('player-status-badge');
+        if (!badge) return;
         if (me.status === 'trapped') {
             badge.innerText = `물풍선 갇힘! (판매 ${me.trap_count}/2 필요) 💧`;
             badge.style.background = '#dc2626';
@@ -309,6 +321,7 @@
 
     function renderGameMap(players, mapInfo) {
         const grid = document.getElementById('game-map-grid');
+        if (!grid) return;
         grid.innerHTML = "";
 
         for (let i = 0; i < 81; i++) {
@@ -317,10 +330,10 @@
             
             if (players) {
                 Object.values(players).forEach(p => {
-                    if (p && p.position === i) {
+                    if (p && p.position === i && p.name) {
                         const token = document.createElement('img');
                         token.className = `player-token ${p.status === 'trapped' ? 'trapped' : ''}`;
-                        token.src = p.avatar;
+                        token.src = p.avatar || 'avatar_1.PNG';
                         token.title = p.name;
                         token.alt = "token";
                         cell.appendChild(token);
@@ -334,6 +347,7 @@
 
     function renderDashboard(players) {
         const tbody = document.getElementById('dashboard-tbody');
+        if (!tbody) return;
         tbody.innerHTML = "";
         
         if (!players || Object.keys(players).length === 0) {
@@ -362,8 +376,9 @@
     }
 
     function doApproach() {
+        if (!myName) return;
         fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
-            if(!me) return;
+            if(!me) { alert("플레이어 정보를 찾을 수 없습니다. 새로고침 후 다시 시작해주세요."); return; }
             me.approach_count = (me.approach_count || 0) + 1;
             
             const cur = me.position;
@@ -400,8 +415,9 @@
     }
 
     function doSale() {
+        if (!myName) return;
         fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
-            if(!me) return;
+            if(!me) { alert("플레이어 정보를 찾을 수 없습니다. 새로고침 후 다시 시작해주세요."); return; }
             if (me.status === 'trapped') {
                 me.trap_count = (me.trap_count || 0) + 1;
                 if (me.trap_count >= 2) {
