@@ -44,9 +44,9 @@
             aspect-ratio: 1; background: #166534; border: 1px solid #14532d;
             display: flex; justify-content: center; align-items: center; font-size: 9px; cursor: pointer; position: relative;
         }
-        .map-cell.revealed { background: #22c55e; } /* 지나간 칸 색상 */
+        .map-cell.revealed { background: #22c55e !important; } /* 지나간 칸 색상 고정 */
         .map-cell.movable { background: #facc15; animation: pulseCell 0.8s infinite alternate; } 
-        .map-cell.approachable { background: #0284c7; animation: pulseApproach 0.8s infinite alternate; } 
+        .map-cell.approachable { background: #0284c7; animation: pulseApproach 0.8s infinite alternate; } /* 전체 맵 조사 가능 칸 */
         .map-cell.start-select { border: 2px dashed #ffea00; background: #ca8a04; }
 
         @keyframes pulseCell {
@@ -132,7 +132,7 @@
             <div class="map-grid" id="game-map-grid"></div>
 
             <div class="action-container">
-                <button class="btn-action" onclick="doApproach()">🔍 어프로치<br>(조사권 획득)</button>
+                <button class="btn-action" onclick="doApproach()">🔍 어프로치<br>(전체 맵 중 1칸 조사)</button>
                 <button class="btn-action" style="background:linear-gradient(135deg, #10b981, #059669); box-shadow:0 3px 0 #047857;" onclick="doSale()">👣 판매 성공<br>(이동권 획득)</button>
             </div>
 
@@ -352,7 +352,7 @@
             badge.innerText = `이동 가능 (${myMovesLeft}회) ✨`;
             badge.style.background = '#eab308';
         } else if (myApproachesLeft > 0) {
-            badge.innerText = `어프로치 가능 (${myApproachesLeft}회) 🔍`;
+            badge.innerText = `조사 가능 (${myApproachesLeft}회) 🔍`;
             badge.style.background = '#0284c7';
         } else {
             badge.innerText = '탐험 중 🟢';
@@ -378,7 +378,7 @@
             if (myMovesLeft > 0) {
                 guideMsg = `✨ <b style='color:#ffea00;'>남은 이동 횟수: ${myMovesLeft}회 (이동할 인접 칸 클릭)</b>`;
             } else if (myApproachesLeft > 0) {
-                guideMsg = `🔍 <b style='color:#38bdf8;'>남은 어프로치 횟수: ${myApproachesLeft}회 (조사할 인접 칸 클릭)</b>`;
+                guideMsg = `🔍 <b style='color:#38bdf8;'>남은 어프로치 횟수: ${myApproachesLeft}회 (조사할 맵 전체 중 아무 칸이나 클릭)</b>`;
             }
             document.getElementById('move-instruction').innerHTML = guideMsg;
         }
@@ -387,7 +387,7 @@
             const cell = document.createElement('div');
             cell.className = 'map-cell';
             
-            // 지나간 칸(revealed) 색상 적용
+            // 지나간 칸(revealed) 색상 적용 (판매 이동으로 밟은 칸만 색상이 바뀜)
             if (revealedList.includes(i)) {
                 cell.classList.add('revealed');
             }
@@ -397,8 +397,8 @@
                 cell.classList.add('movable');
                 cell.onclick = () => executeMove(i);
             } 
-            // 어프로치 모드일 때 인접 칸 하이라이트 (타일 색상은 변하지 않고 클릭만 가능)
-            else if (myApproachesLeft > 0 && myPos !== null && isAdjacent(myPos, i)) {
+            // 어프로치 모드일 때 맵 전체(81칸 중 아무 곳이나) 하이라이트 및 클릭 조사 가능
+            else if (myApproachesLeft > 0) {
                 cell.classList.add('approachable');
                 cell.onclick = () => executeApproach(i);
             } else {
@@ -437,7 +437,7 @@
             me.position = targetIdx;
             myMovesLeft--;
 
-            // 지나간 칸만 맵에 색상이 밝게 기록됨
+            // 지나간 칸 revealed 등록 (이때만 칸 색상이 밝게 변경됨)
             markCellRevealed(targetIdx);
 
             fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
@@ -447,14 +447,19 @@
 
                 if (cellType === 'treasure') {
                     me.treasure_found = (Number(me.treasure_found) || 0) + 1;
-                    me.total_won = (Number(me.total_won) || 0) + 1000;
-                    alert(`🎁 대박! ${targetIdx}번 칸에서 보물을 발견했습니다! 상금 +1,000원 획득!`);
-                    delete cellsInfo[targetIdx]; 
+                    
+                    // 1,000원, 2,000원, 3,000원 중 동일 확률로 랜덤 보상 선택
+                    const rewards = [1000, 2000, 3000];
+                    const randomReward = rewards[Math.floor(Math.random() * rewards.length)];
+                    me.total_won = (Number(me.total_won) || 0) + randomReward;
+
+                    alert(`🎁 대박! ${targetIdx}번 칸에서 보물을 발견했습니다! 코스머니 +${randomReward.toLocaleString()}원 획득!`);
+                    delete cellsInfo[targetIdx]; // 보물 소멸
                 } else if (cellType === 'trap') {
                     me.status = 'trapped';
                     me.trap_count = 0;
                     alert(`💥 함정에 빠졌습니다! 물풍선에 갇혔습니다! 탈출하려면 판매(Sale)를 2번 성공해야 합니다.`);
-                    delete cellsInfo[targetIdx]; 
+                    delete cellsInfo[targetIdx]; // 함정 소멸
                 } else if (cellType === 'event') {
                     const randEvt = Math.floor(Math.random() * 3);
                     if (randEvt === 0) {
@@ -467,7 +472,7 @@
                         myMovesLeft += 1;
                         alert(`✨ [이벤트 당첨!] 행운의 보너스! 추가 이동 횟수 +1회 획득!`);
                     }
-                    delete cellsInfo[targetIdx]; 
+                    delete cellsInfo[targetIdx]; // 이벤트 소멸
                 } else {
                     alert(`👣 ${targetIdx}번 칸으로 이동했습니다.`);
                 }
@@ -492,9 +497,9 @@
 
             myApproachesLeft--;
             
-            // ⚠️ 중요: 어프로치 시에는 markCellRevealed를 호출하지 않으므로 맵 타일 색상이 변하지 않고 혼자만 알게 됩니다!
+            // ⚠️ 중요: 어프로치 조사 시에는 markCellRevealed를 호출하지 않으므로 맵 타일 색상이 절대 변하지 않고 혼자만 알게 됩니다!
 
-            let resultMsg = `🔍 [${targetIdx}번 칸 탐색 결과]\n`;
+            let resultMsg = `🔍 [${targetIdx}번 칸 조사 결과]\n`;
             if (cellType === 'treasure') {
                 resultMsg += "🎁 찬란한 보물의 기운이 감지됩니다!";
             } else if (cellType === 'trap') {
@@ -520,7 +525,7 @@
             return;
         }
 
-        const sorted = Object.values(players).filter(p => p && p.name).sort((a,b) => (b.treasure_found || 0) - (a.treasure_found || 0) || (b.sale_count || 0) - (b.sale_count || 0));
+        const sorted = Object.values(players).filter(p => p && p.name).sort((a,b) => (b.treasure_found || 0) - (a.treasure_found || 0) || (b.sale_count || 0) - (a.sale_count || 0));
         
         if (sorted.length === 0) {
             tbody.innerHTML = `<tr><td colspan="5" style="color:#aaa; text-align:center;">기록이 없습니다.</td></tr>`;
@@ -547,7 +552,7 @@
             me.approach_count = (Number(me.approach_count) || 0) + 1;
             myApproachesLeft += 1;
             
-            alert("🔍 어프로치 성공! 맵에서 조사하고 싶은 인접한 칸을 클릭하세요.");
+            alert("🔍 어프로치 성공! 맵 전체 중 조사하고 싶은 칸을 아무 곳이나 클릭하세요.");
 
             fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`, {
                 method: 'PUT',
