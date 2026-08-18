@@ -44,7 +44,20 @@
             aspect-ratio: 1; background: #166534; border: 1px solid #14532d;
             display: flex; justify-content: center; align-items: center; font-size: 9px; cursor: pointer; position: relative;
         }
+        .map-cell.revealed { background: #22c55e; } /* 밝혀진 칸 색상 */
+        .map-cell.movable { background: #facc15; animation: pulseCell 0.8s infinite alternate; } /* 이동 가능 칸 */
+        .map-cell.approachable { background: #0284c7; animation: pulseApproach 0.8s infinite alternate; } /* 어프로치 가능 칸 */
         .map-cell.start-select { border: 2px dashed #ffea00; background: #ca8a04; }
+
+        @keyframes pulseCell {
+            from { background: #eab308; }
+            to { background: #fef08a; }
+        }
+
+        @keyframes pulseApproach {
+            from { background: #0284c7; }
+            to { background: #38bdf8; }
+        }
 
         .player-token {
             width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; object-fit: cover;
@@ -112,13 +125,13 @@
             </div>
 
             <div class="title-flash" style="font-size:1.4rem;">🗺️ 주간 CR 30% 목표 맵</div>
-            <div style="font-size:0.75rem; color:#00f0ff; margin-bottom:4px;">[ 실시간 멀티플레이 탐험 ]</div>
+            <div id="move-instruction" style="font-size:0.85rem; color:#ffea00; margin-bottom:4px;">[ 판매 또는 어프로치 버튼을 눌러 행동하세요! ]</div>
 
             <div class="map-grid" id="game-map-grid"></div>
 
             <div class="action-container">
-                <button class="btn-action" onclick="doApproach()">🔍 어프로치<br>(주변 1칸 비추기)</button>
-                <button class="btn-action" style="background:linear-gradient(135deg, #10b981, #059669); box-shadow:0 3px 0 #047857;" onclick="doSale()">👣 판매 성공<br>(1칸 이동)</button>
+                <button class="btn-action" onclick="doApproach()">🔍 어프로치<br>(조사권 획득)</button>
+                <button class="btn-action" style="background:linear-gradient(135deg, #10b981, #059669); box-shadow:0 3px 0 #047857;" onclick="doSale()">👣 판매 성공<br>(이동권 획득)</button>
             </div>
 
             <div style="margin-top:15px; background:rgba(0,0,0,0.4); padding:10px; border-radius:10px; border:1px solid #00f0ff;">
@@ -171,6 +184,8 @@
     let selectedChar = null;
     let selectedStartPos = null;
     let myName = localStorage.getItem('osam_treasure_user');
+    let myMovesLeft = 0;        // 남은 이동 가능 횟수
+    let myApproachesLeft = 0;   // 남은 어프로치 조사 횟수
 
     function initSetup() {
         const grid = document.getElementById('char-select-container');
@@ -242,8 +257,22 @@
                 method: 'PUT',
                 body: JSON.stringify(playerData)
             }).then(() => {
+                markCellRevealed(Number(selectedStartPos));
                 checkAndInitDailyMap();
             });
+        });
+    }
+
+    function markCellRevealed(pos) {
+        fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}/revealed.json`).then(res => res.json()).then(revList => {
+            revList = revList || [];
+            if (!revList.includes(pos)) {
+                revList.push(pos);
+                fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}/revealed.json`, {
+                    method: 'PUT',
+                    body: JSON.stringify(revList)
+                });
+            }
         });
     }
 
@@ -262,18 +291,23 @@
 
     function checkAndInitDailyMap() {
         fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
-            if (!mapData) {
+            if (!mapData || !mapData.cells) {
                 let indices = Array.from({length: 81}, (_, i) => i);
                 indices.sort(() => Math.random() - 0.5);
                 
-                const newMap = {};
-                for(let i=0; i<3; i++) newMap[indices[i]] = 'treasure';
-                for(let i=3; i<5; i++) newMap[indices[i]] = 'trap';
-                for(let i=5; i<8; i++) newMap[indices[i]] = 'event';
+                const cellsMap = {};
+                for(let i=0; i<3; i++) cellsMap[indices[i]] = 'treasure';
+                for(let i=3; i<5; i++) cellsMap[indices[i]] = 'trap';
+                for(let i=5; i<8; i++) cellsMap[indices[i]] = 'event';
+
+                const initialMap = {
+                    cells: cellsMap,
+                    revealed: []
+                };
 
                 fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`, {
                     method: 'PUT',
-                    body: JSON.stringify(newMap)
+                    body: JSON.stringify(initialMap)
                 }).then(() => startMainGame());
             } else {
                 startMainGame();
@@ -297,8 +331,9 @@
         Promise.all([
             fetch(`${FIREBASE_URL}osam_treasure_users.json`).then(res => res.json()),
             fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json())
-        ]).then(([players, mapInfo]) => {
-            renderGameMap(players || {}, mapInfo || {});
+        ]).then(([players, mapData]) => {
+            mapData = mapData || { cells: {}, revealed: [] };
+            renderGameMap(players || {}, mapData);
             renderDashboard(players || {});
             updateMyStatus(players && players[myName] ? players[myName] : null);
         }).catch(err => console.log("Sync error:", err));
@@ -311,21 +346,65 @@
         if (me.status === 'trapped') {
             badge.innerText = `물풍선 갇힘! (판매 ${me.trap_count}/2 필요) 💧`;
             badge.style.background = '#dc2626';
+        } else if (myMovesLeft > 0) {
+            badge.innerText = `이동 가능 (${myMovesLeft}회) ✨`;
+            badge.style.background = '#eab308';
+        } else if (myApproachesLeft > 0) {
+            badge.innerText = `어프로치 가능 (${myApproachesLeft}회) 🔍`;
+            badge.style.background = '#0284c7';
         } else {
             badge.innerText = '탐험 중 🟢';
             badge.style.background = '#15803d';
         }
     }
 
-    function renderGameMap(players, mapInfo) {
+    function renderGameMap(players, mapData) {
         const grid = document.getElementById('game-map-grid');
         if (!grid) return;
         grid.innerHTML = "";
+
+        const revealedList = mapData.revealed || [];
+        const cellsInfo = mapData.cells || {};
+        const myData = players[myName];
+        const myPos = myData ? Number(myData.position) : null;
+
+        // 보물 개수 체크 (자동 종료 조건)
+        const remainingTreasures = Object.values(cellsInfo).filter(val => val === 'treasure').length;
+        if (remainingTreasures === 0 && Object.keys(cellsInfo).length > 0) {
+            document.getElementById('move-instruction.innerHTML = "🏆 <b style=\'color:#ffea00;\'>모든 보물을 찾았습니다! 오늘 탐험 완료!</b>";
+        } else {
+            let guideMsg = "[ 판매 또는 어프로치 버튼을 눌러 행동하세요! ]";
+            if (myMovesLeft > 0) {
+                guideMsg = `✨ <b style='color:#ffea00;'>남은 이동 횟수: ${myMovesLeft}회 (이동할 인접 칸 클릭)</b>`;
+            } else if (myApproachesLeft > 0) {
+                guideMsg = `🔍 <b style='color:#38bdf8;'>남은 어프로치 횟수: ${myApproachesLeft}회 (조사할 인접 칸 클릭)</b>`;
+            }
+            document.getElementById('move-instruction').innerHTML = guideMsg;
+        }
 
         for (let i = 0; i < 81; i++) {
             const cell = document.createElement('div');
             cell.className = 'map-cell';
             
+            // 지나간 칸(revealed) 색상 적용
+            if (revealedList.includes(i)) {
+                cell.classList.add('revealed');
+            }
+
+            // 이동 모드일 때 인접 칸 하이라이트
+            if (myMovesLeft > 0 && myPos !== null && isAdjacent(myPos, i)) {
+                cell.classList.add('movable');
+                cell.onclick = () => executeMove(i);
+            } 
+            // 어프로치 모드일 때 인접 칸 하이라이트
+            else if (myApproachesLeft > 0 && myPos !== null && isAdjacent(myPos, i)) {
+                cell.classList.add('approachable');
+                cell.onclick = () => executeApproach(i);
+            } else {
+                cell.onclick = null;
+            }
+
+            // 플레이어 토큰 배치
             if (players) {
                 Object.values(players).forEach(p => {
                     if (p && Number(p.position) === i && p.name) {
@@ -343,6 +422,94 @@
         }
     }
 
+    // 8방향 인접 체크 함수
+    function isAdjacent(pos1, pos2) {
+        const r1 = Math.floor(pos1 / 9), c1 = pos1 % 9;
+        const r2 = Math.floor(pos2 / 9), c2 = pos2 % 9;
+        return Math.abs(r1 - r2) <= 1 && Math.abs(c1 - c2) <= 1 && pos1 !== pos2;
+    }
+
+    // 이동 실행
+    function executeMove(targetIdx) {
+        if (myMovesLeft <= 0 || !myName) return;
+
+        fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
+            if (!me) return;
+            me.position = targetIdx;
+            myMovesLeft--;
+
+            markCellRevealed(targetIdx);
+
+            fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
+                mapData = mapData || { cells: {}, revealed: [] };
+                const cellsInfo = mapData.cells || {};
+                const cellType = cellsInfo[targetIdx];
+
+                if (cellType === 'treasure') {
+                    me.treasure_found = (Number(me.treasure_found) || 0) + 1;
+                    me.total_won = (Number(me.total_won) || 0) + 1000;
+                    alert(`🎁 대박! ${targetIdx}번 칸에서 보물을 발견했습니다! 상금 +1,000원 획득!`);
+                    delete cellsInfo[targetIdx]; // 보물 소멸
+                } else if (cellType === 'trap') {
+                    me.status = 'trapped';
+                    me.trap_count = 0;
+                    alert(`💥 함정에 빠졌습니다! 물풍선에 갇혔습니다! 탈출하려면 판매(Sale)를 2번 성공해야 합니다.`);
+                    delete cellsInfo[targetIdx]; // 함정 소멸
+                } else if (cellType === 'event') {
+                    const randEvt = Math.floor(Math.random() * 3);
+                    if (randEvt === 0) {
+                        myMovesLeft += 3;
+                        alert(`✨ [이벤트 당첨!] 부스터 발동! 추가 이동 횟수 +3회 획득!`);
+                    } else if (randEvt === 1) {
+                        myMovesLeft += 1;
+                        alert(`✨ [이벤트 당첨!] 정찰 안경 획득! 추가 이동 횟수 +1회 획득!`);
+                    } else {
+                        myMovesLeft += 1;
+                        alert(`✨ [이벤트 당첨!] 행운의 보너스! 추가 이동 횟수 +1회 획득!`);
+                    }
+                    delete cellsInfo[targetIdx]; // 이벤트 소멸
+                } else {
+                    alert(`👣 ${targetIdx}번 칸으로 이동했습니다.`);
+                }
+
+                mapData.cells = cellsInfo;
+
+                Promise.all([
+                    fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`, { method: 'PUT', body: JSON.stringify(me) }),
+                    fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`, { method: 'PUT', body: JSON.stringify(mapData) })
+                ]).then(() => syncGameData());
+            });
+        });
+    }
+
+    // 어프로치 클릭 조사 실행
+    function executeApproach(targetIdx) {
+        if (myApproachesLeft <= 0 || !myName) return;
+
+        fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
+            mapData = mapData || { cells: {}, revealed: [] };
+            const cellsInfo = mapData.cells || {};
+            const cellType = cellsInfo[targetIdx];
+
+            myApproachesLeft--;
+            markCellRevealed(targetIdx);
+
+            let resultMsg = `🔍 [${targetIdx}번 칸 탐색 결과]\n`;
+            if (cellType === 'treasure') {
+                resultMsg += "🎁 찬란한 보물의 기운이 감지됩니다!";
+            } else if (cellType === 'trap') {
+                resultMsg += "💥 위험한 함정(물풍선)의 기운이 느껴집니다!";
+            } else if (cellType === 'event') {
+                resultMsg += "✨ 신비로운 이벤트 기운이 감지됩니다!";
+            } else {
+                resultMsg += "아무것도 없는 안전한 빈 칸입니다.";
+            }
+            alert(resultMsg);
+
+            syncGameData();
+        });
+    }
+
     function renderDashboard(players) {
         const tbody = document.getElementById('dashboard-tbody');
         if (!tbody) return;
@@ -353,7 +520,7 @@
             return;
         }
 
-        const sorted = Object.values(players).filter(p => p && p.name).sort((a,b) => (b.treasure_found || 0) - (a.treasure_found || 0) || (b.sale_count || 0) - (a.sale_count || 0));
+        const sorted = Object.values(players).filter(p => p && p.name).sort((a,b) => (b.treasure_found || 0) - (a.treasure_found || 0) || (b.sale_count || 0) - (b.sale_count || 0));
         
         if (sorted.length === 0) {
             tbody.innerHTML = `<tr><td colspan="5" style="color:#aaa; text-align:center;">기록이 없습니다.</td></tr>`;
@@ -373,51 +540,29 @@
         });
     }
 
+    // 어프로치 버튼 클릭 (조사권 획득)
     function doApproach() {
         if (!myName) return;
         fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
-            if(!me) { alert("플레이어 정보를 찾을 수 없습니다. 새로고침 후 다시 시작해주세요."); return; }
+            if(!me) { alert("플레이어 정보를 찾을 수 없습니다."); return; }
             me.approach_count = (Number(me.approach_count) || 0) + 1;
+            myApproachesLeft += 1;
             
-            const cur = Number(me.position) || 0;
-            const row = Math.floor(cur / 9);
-            const col = cur % 9;
-            
-            fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapInfo => {
-                mapInfo = mapInfo || {};
-                const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
-                let foundHint = false;
-                dirs.forEach(([dr, dc]) => {
-                    const nr = row + dr;
-                    const nc = col + dc;
-                    if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9) {
-                        const nIdx = nr * 9 + nc;
-                        if (mapInfo[nIdx]) {
-                            foundHint = true;
-                        }
-                    }
-                });
+            alert("🔍 어프로치 성공! 맵에서 조사하고 싶은 인접한 칸을 클릭하세요.");
 
-                if (foundHint) {
-                    alert(`🔍 어프로치 성공! [탐색 결과] 내 인접한 칸(상하좌우) 중 무언가(보물/함정/이벤트)가 숨어있는 기운이 감지됩니다!`);
-                } else {
-                    alert(`🔍 어프로치 성공! 주변 1칸 이내에는 특이사항이 없습니다.`);
-                }
-
-                fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`, {
-                    method: 'PUT',
-                    body: JSON.stringify(me)
-                }).then(() => syncGameData());
-            });
+            fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`, {
+                method: 'PUT',
+                body: JSON.stringify(me)
+            }).then(() => syncGameData());
         });
     }
 
+    // 판매 성공 버튼 클릭 (이동권 획득)
     function doSale() {
         if (!myName) return;
         fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
-            if(!me) { alert("플레이어 정보를 찾을 수 없습니다. 새로고침 후 다시 시작해주세요."); return; }
+            if(!me) { alert("플레이어 정보를 찾을 수 없습니다."); return; }
             
-            // position 방어 코드 추가
             me.position = Number(me.position) || 0;
 
             if (me.status === 'trapped') {
@@ -425,7 +570,8 @@
                 if (me.trap_count >= 2) {
                     me.status = 'active';
                     me.trap_count = 0;
-                    alert("💧 물풍선 탈출 성공! 다시 탐험을 시작합니다!");
+                    alert("💧 물풍선 탈출 성공! 이동권 1회가 주어집니다!");
+                    myMovesLeft += 1;
                 } else {
                     alert(`💧 판매 1회 완료! 함정 탈출까지 앞으로 판매 1번 남았습니다.`);
                 }
@@ -434,45 +580,13 @@
             }
 
             me.sale_count = (Number(me.sale_count) || 0) + 1;
-            me.position = Math.min(me.position + 1, 80);
+            myMovesLeft += 1;
+            alert(`👣 판매 성공! 이동권 +1회 획득! 맵에서 이동할 인접한 칸을 클릭하세요.`);
 
-            fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapInfo => {
-                mapInfo = mapInfo || {};
-                const cellType = mapInfo[me.position];
-
-                if (cellType === 'treasure') {
-                    me.treasure_found = (Number(me.treasure_found) || 0) + 1;
-                    const reward = 1000;
-                    me.total_won = (Number(me.total_won) || 0) + reward;
-                    alert(`🎁 대박! ${me.position}번 칸에서 보물을 발견했습니다! 상금 +1,000원 획득!`);
-                    delete mapInfo[me.position];
-                    fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`, { method: 'PUT', body: JSON.stringify(mapInfo) });
-                } else if (cellType === 'trap') {
-                    me.status = 'trapped';
-                    me.trap_count = 0;
-                    alert(`💥 함정에 빠졌습니다! 물풍선에 갇혔습니다! 탈출하려면 판매(Sale)를 2번 성공해야 합니다.`);
-                } else if (cellType === 'event') {
-                    const randEvt = Math.floor(Math.random() * 3);
-                    if (randEvt === 0) {
-                        me.position = Math.min(me.position + 3, 80);
-                        alert(`✨ [이벤트 당첨!] 부스터 발동! 3칸 앞으로 점프합니다!`);
-                    } else if (randEvt === 1) {
-                        alert(`✨ [이벤트 당첨!] 정찰 안경 획득! 지도 위의 비밀 기운을 감지했습니다.`);
-                    } else {
-                        me.position = Math.min(me.position + 1, 80);
-                        alert(`✨ [이벤트 당첨!] 행운의 보너스! 1칸 더 전진합니다!`);
-                    }
-                    delete mapInfo[me.position];
-                    fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`, { method: 'PUT', body: JSON.stringify(mapInfo) });
-                } else {
-                    alert(`👣 판매 성공! 한 칸 전진했습니다. (현재 위치: ${me.position}번 칸)`);
-                }
-
-                fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`, {
-                    method: 'PUT',
-                    body: JSON.stringify(me)
-                }).then(() => syncGameData());
-            });
+            fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`, {
+                method: 'PUT',
+                body: JSON.stringify(me)
+            }).then(() => syncGameData());
         });
     }
 
