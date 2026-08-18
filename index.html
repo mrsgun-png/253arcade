@@ -44,7 +44,7 @@
             aspect-ratio: 1; background: #166534; border: 1px solid #14532d;
             display: flex; justify-content: center; align-items: center; font-size: 9px; cursor: pointer; position: relative;
         }
-        .map-cell.revealed { background: #22c55e; } 
+        .map-cell.revealed { background: #22c55e; } /* 지나간 칸 색상 */
         .map-cell.movable { background: #facc15; animation: pulseCell 0.8s infinite alternate; } 
         .map-cell.approachable { background: #0284c7; animation: pulseApproach 0.8s infinite alternate; } 
         .map-cell.start-select { border: 2px dashed #ffea00; background: #ca8a04; }
@@ -387,20 +387,25 @@
             const cell = document.createElement('div');
             cell.className = 'map-cell';
             
+            // 지나간 칸(revealed) 색상 적용
             if (revealedList.includes(i)) {
                 cell.classList.add('revealed');
             }
 
+            // 이동 모드일 때 인접 칸 하이라이트
             if (myMovesLeft > 0 && myPos !== null && isAdjacent(myPos, i)) {
                 cell.classList.add('movable');
                 cell.onclick = () => executeMove(i);
-            } else if (myApproachesLeft > 0 && myPos !== null && isAdjacent(myPos, i)) {
+            } 
+            // 어프로치 모드일 때 인접 칸 하이라이트 (타일 색상은 변하지 않고 클릭만 가능)
+            else if (myApproachesLeft > 0 && myPos !== null && isAdjacent(myPos, i)) {
                 cell.classList.add('approachable');
                 cell.onclick = () => executeApproach(i);
             } else {
                 cell.onclick = null;
             }
 
+            // 플레이어 토큰 배치
             if (players) {
                 Object.values(players).forEach(p => {
                     if (p && Number(p.position) === i && p.name) {
@@ -432,6 +437,7 @@
             me.position = targetIdx;
             myMovesLeft--;
 
+            // 지나간 칸만 맵에 색상이 밝게 기록됨
             markCellRevealed(targetIdx);
 
             fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
@@ -485,7 +491,8 @@
             const cellType = cellsInfo[targetIdx];
 
             myApproachesLeft--;
-            markCellRevealed(targetIdx);
+            
+            // ⚠️ 중요: 어프로치 시에는 markCellRevealed를 호출하지 않으므로 맵 타일 색상이 변하지 않고 혼자만 알게 됩니다!
 
             let resultMsg = `🔍 [${targetIdx}번 칸 탐색 결과]\n`;
             if (cellType === 'treasure') {
