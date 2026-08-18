@@ -44,7 +44,7 @@
             aspect-ratio: 1; background: #166534; border: 1px solid #14532d;
             display: flex; justify-content: center; align-items: center; font-size: 9px; cursor: pointer; position: relative;
         }
-        .map-cell.revealed { background: #22c55e !important; } /* 지나간 칸 색상 고정 */
+        .map-cell.revealed { background: #22c55e !important; } /* 지나간 칸 밝은 초록색 */
         .map-cell.movable { background: #facc15; animation: pulseCell 0.8s infinite alternate; } 
         .map-cell.approachable { background: #0284c7; animation: pulseApproach 0.8s infinite alternate; } 
         .map-cell.start-select { border: 2px dashed #ffea00; background: #ca8a04; }
@@ -265,11 +265,19 @@
         });
     }
 
-    // 각 칸 번호를 개별 경로로 안전하게 저장하여 동시성 충돌 방지
+    // 지나간 칸 배열에 안전하게 추가하는 함수
     function markCellRevealed(pos) {
-        fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}/revealed/${pos}.json`, {
-            method: 'PUT',
-            body: JSON.stringify(true)
+        fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
+            mapData = mapData || { cells: {}, revealed: [] };
+            let revList = mapData.revealed || [];
+            if (!revList.includes(pos)) {
+                revList.push(pos);
+            }
+            mapData.revealed = revList;
+            fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`, {
+                method: 'PUT',
+                body: JSON.stringify(mapData)
+            });
         });
     }
 
@@ -299,7 +307,7 @@
 
                 const initialMap = {
                     cells: cellsMap,
-                    revealed: {}
+                    revealed: []
                 };
 
                 fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`, {
@@ -329,7 +337,7 @@
             fetch(`${FIREBASE_URL}osam_treasure_users.json`).then(res => res.json()),
             fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json())
         ]).then(([players, mapData]) => {
-            mapData = mapData || { cells: {}, revealed: {} };
+            mapData = mapData || { cells: {}, revealed: [] };
             renderGameMap(players || {}, mapData);
             renderDashboard(players || {});
             updateMyStatus(players && players[myName] ? players[myName] : null);
@@ -360,7 +368,7 @@
         if (!grid) return;
         grid.innerHTML = "";
 
-        const revealedObj = mapData.revealed || {};
+        const revealedList = mapData.revealed || [];
         const cellsInfo = mapData.cells || {};
         const myData = players[myName];
         const myPos = myData ? Number(myData.position) : null;
@@ -382,8 +390,8 @@
             const cell = document.createElement('div');
             cell.className = 'map-cell';
             
-            // 지나간 칸 객체에 해당 번호가 있으면 색상 적용
-            if (revealedObj[i]) {
+            // 지나간 칸 목록에 포함되어 있으면 밝은 초록색 적용
+            if (revealedList.includes(i) || revealedList.includes(String(i))) {
                 cell.classList.add('revealed');
             }
 
@@ -432,11 +440,11 @@
             me.position = targetIdx;
             myMovesLeft--;
 
-            // 지나간 칸 revealed 등록
+            // 서버에 지나간 칸 즉시 기록
             markCellRevealed(targetIdx);
 
             fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
-                mapData = mapData || { cells: {}, revealed: {} };
+                mapData = mapData || { cells: {}, revealed: [] };
                 const cellsInfo = mapData.cells || {};
                 const cellType = cellsInfo[targetIdx];
 
@@ -486,7 +494,7 @@
         if (myApproachesLeft <= 0 || !myName) return;
 
         fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
-            mapData = mapData || { cells: {}, revealed: {} };
+            mapData = mapData || { cells: {}, revealed: [] };
             const cellsInfo = mapData.cells || {};
             const cellType = cellsInfo[targetIdx];
 
