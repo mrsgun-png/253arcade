@@ -46,7 +46,7 @@
         }
         .map-cell.revealed { background: #22c55e !important; } /* 지나간 칸 색상 고정 */
         .map-cell.movable { background: #facc15; animation: pulseCell 0.8s infinite alternate; } 
-        .map-cell.approachable { background: #0284c7; animation: pulseApproach 0.8s infinite alternate; } /* 전체 맵 조사 가능 칸 */
+        .map-cell.approachable { background: #0284c7; animation: pulseApproach 0.8s infinite alternate; } 
         .map-cell.start-select { border: 2px dashed #ffea00; background: #ca8a04; }
 
         @keyframes pulseCell {
@@ -265,16 +265,11 @@
         });
     }
 
+    // 각 칸 번호를 개별 경로로 안전하게 저장하여 동시성 충돌 방지
     function markCellRevealed(pos) {
-        fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}/revealed.json`).then(res => res.json()).then(revList => {
-            revList = revList || [];
-            if (!revList.includes(pos)) {
-                revList.push(pos);
-                fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}/revealed.json`, {
-                    method: 'PUT',
-                    body: JSON.stringify(revList)
-                });
-            }
+        fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}/revealed/${pos}.json`, {
+            method: 'PUT',
+            body: JSON.stringify(true)
         });
     }
 
@@ -304,7 +299,7 @@
 
                 const initialMap = {
                     cells: cellsMap,
-                    revealed: []
+                    revealed: {}
                 };
 
                 fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`, {
@@ -334,7 +329,7 @@
             fetch(`${FIREBASE_URL}osam_treasure_users.json`).then(res => res.json()),
             fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json())
         ]).then(([players, mapData]) => {
-            mapData = mapData || { cells: {}, revealed: [] };
+            mapData = mapData || { cells: {}, revealed: {} };
             renderGameMap(players || {}, mapData);
             renderDashboard(players || {});
             updateMyStatus(players && players[myName] ? players[myName] : null);
@@ -365,7 +360,7 @@
         if (!grid) return;
         grid.innerHTML = "";
 
-        const revealedList = mapData.revealed || [];
+        const revealedObj = mapData.revealed || {};
         const cellsInfo = mapData.cells || {};
         const myData = players[myName];
         const myPos = myData ? Number(myData.position) : null;
@@ -387,8 +382,8 @@
             const cell = document.createElement('div');
             cell.className = 'map-cell';
             
-            // 지나간 칸(revealed) 색상 적용 (판매 이동으로 밟은 칸만 색상이 바뀜)
-            if (revealedList.includes(i)) {
+            // 지나간 칸 객체에 해당 번호가 있으면 색상 적용
+            if (revealedObj[i]) {
                 cell.classList.add('revealed');
             }
 
@@ -437,29 +432,29 @@
             me.position = targetIdx;
             myMovesLeft--;
 
-            // 지나간 칸 revealed 등록 (이때만 칸 색상이 밝게 변경됨)
+            // 지나간 칸 revealed 등록
             markCellRevealed(targetIdx);
 
             fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
-                mapData = mapData || { cells: {}, revealed: [] };
+                mapData = mapData || { cells: {}, revealed: {} };
                 const cellsInfo = mapData.cells || {};
                 const cellType = cellsInfo[targetIdx];
 
                 if (cellType === 'treasure') {
                     me.treasure_found = (Number(me.treasure_found) || 0) + 1;
                     
-                    // 1,000원, 2,000원, 3,000원 중 동일 확률로 랜덤 보상 선택
+                    // 코스머니 1,000원, 2,000원, 3,000원 중 동일 확률로 랜덤 보상 선택
                     const rewards = [1000, 2000, 3000];
                     const randomReward = rewards[Math.floor(Math.random() * rewards.length)];
                     me.total_won = (Number(me.total_won) || 0) + randomReward;
 
                     alert(`🎁 대박! ${targetIdx}번 칸에서 보물을 발견했습니다! 코스머니 +${randomReward.toLocaleString()}원 획득!`);
-                    delete cellsInfo[targetIdx]; // 보물 소멸
+                    delete cellsInfo[targetIdx]; 
                 } else if (cellType === 'trap') {
                     me.status = 'trapped';
                     me.trap_count = 0;
                     alert(`💥 함정에 빠졌습니다! 물풍선에 갇혔습니다! 탈출하려면 판매(Sale)를 2번 성공해야 합니다.`);
-                    delete cellsInfo[targetIdx]; // 함정 소멸
+                    delete cellsInfo[targetIdx]; 
                 } else if (cellType === 'event') {
                     const randEvt = Math.floor(Math.random() * 3);
                     if (randEvt === 0) {
@@ -472,7 +467,7 @@
                         myMovesLeft += 1;
                         alert(`✨ [이벤트 당첨!] 행운의 보너스! 추가 이동 횟수 +1회 획득!`);
                     }
-                    delete cellsInfo[targetIdx]; // 이벤트 소멸
+                    delete cellsInfo[targetIdx]; 
                 } else {
                     alert(`👣 ${targetIdx}번 칸으로 이동했습니다.`);
                 }
@@ -491,13 +486,11 @@
         if (myApproachesLeft <= 0 || !myName) return;
 
         fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
-            mapData = mapData || { cells: {}, revealed: [] };
+            mapData = mapData || { cells: {}, revealed: {} };
             const cellsInfo = mapData.cells || {};
             const cellType = cellsInfo[targetIdx];
 
             myApproachesLeft--;
-            
-            // ⚠️ 중요: 어프로치 조사 시에는 markCellRevealed를 호출하지 않으므로 맵 타일 색상이 절대 변하지 않고 혼자만 알게 됩니다!
 
             let resultMsg = `🔍 [${targetIdx}번 칸 조사 결과]\n`;
             if (cellType === 'treasure') {
