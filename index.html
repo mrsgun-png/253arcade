@@ -186,7 +186,6 @@
             `;
         });
 
-        // 자동 로그인 방지 및 강제 셋업 진입을 원하시면 아래 주석을 해제하거나 관리자 초기화를 이용하세요
         if (myName) {
             checkUserAlreadyStarted();
         }
@@ -230,13 +229,13 @@
             const playerData = {
                 name: myName,
                 avatar: selectedChar.avatar,
-                position: selectedStartPos,
+                position: Number(selectedStartPos) || 0,
                 status: 'active',
                 trap_count: 0,
-                approach_count: existing ? (existing.approach_count || 0) : 0,
-                sale_count: existing ? (existing.sale_count || 0) : 0,
-                treasure_found: existing ? (existing.treasure_found || 0) : 0,
-                total_won: existing ? (existing.total_won || 0) : 0
+                approach_count: existing && existing.approach_count !== undefined ? Number(existing.approach_count) : 0,
+                sale_count: existing && existing.sale_count !== undefined ? Number(existing.sale_count) : 0,
+                treasure_found: existing && existing.treasure_found !== undefined ? Number(existing.treasure_found) : 0,
+                total_won: existing && existing.total_won !== undefined ? Number(existing.total_won) : 0
             };
 
             fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`, {
@@ -254,7 +253,6 @@
                 selectedChar = { name: data.name, avatar: data.avatar };
                 startMainGame();
             } else {
-                // 데이터가 비어있거나 꼬인 경우 강제로 셋업 화면 유지
                 localStorage.removeItem('osam_treasure_user');
             }
         }).catch(() => {
@@ -330,7 +328,7 @@
             
             if (players) {
                 Object.values(players).forEach(p => {
-                    if (p && p.position === i && p.name) {
+                    if (p && Number(p.position) === i && p.name) {
                         const token = document.createElement('img');
                         token.className = `player-token ${p.status === 'trapped' ? 'trapped' : ''}`;
                         token.src = p.avatar || 'avatar_1.PNG';
@@ -379,9 +377,9 @@
         if (!myName) return;
         fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
             if(!me) { alert("플레이어 정보를 찾을 수 없습니다. 새로고침 후 다시 시작해주세요."); return; }
-            me.approach_count = (me.approach_count || 0) + 1;
+            me.approach_count = (Number(me.approach_count) || 0) + 1;
             
-            const cur = me.position;
+            const cur = Number(me.position) || 0;
             const row = Math.floor(cur / 9);
             const col = cur % 9;
             
@@ -418,8 +416,12 @@
         if (!myName) return;
         fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
             if(!me) { alert("플레이어 정보를 찾을 수 없습니다. 새로고침 후 다시 시작해주세요."); return; }
+            
+            // position 방어 코드 추가
+            me.position = Number(me.position) || 0;
+
             if (me.status === 'trapped') {
-                me.trap_count = (me.trap_count || 0) + 1;
+                me.trap_count = (Number(me.trap_count) || 0) + 1;
                 if (me.trap_count >= 2) {
                     me.status = 'active';
                     me.trap_count = 0;
@@ -431,7 +433,7 @@
                 return;
             }
 
-            me.sale_count = (me.sale_count || 0) + 1;
+            me.sale_count = (Number(me.sale_count) || 0) + 1;
             me.position = Math.min(me.position + 1, 80);
 
             fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapInfo => {
@@ -439,9 +441,9 @@
                 const cellType = mapInfo[me.position];
 
                 if (cellType === 'treasure') {
-                    me.treasure_found = (me.treasure_found || 0) + 1;
+                    me.treasure_found = (Number(me.treasure_found) || 0) + 1;
                     const reward = 1000;
-                    me.total_won = (me.total_won || 0) + reward;
+                    me.total_won = (Number(me.total_won) || 0) + reward;
                     alert(`🎁 대박! ${me.position}번 칸에서 보물을 발견했습니다! 상금 +1,000원 획득!`);
                     delete mapInfo[me.position];
                     fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`, { method: 'PUT', body: JSON.stringify(mapInfo) });
