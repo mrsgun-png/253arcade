@@ -36,34 +36,52 @@
         .select-card.selected { border-color: #ff0077; background: rgba(255,0,119,0.2); }
         .card-img { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ffea00; object-fit: cover; flex-shrink: 0; }
 
+        /* 크아 3D 입체 블록 감성 맵 스타일 */
         .map-grid {
             display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px;
             background: #0e3b1e; border: 4px solid #4ade80; border-radius: 10px; padding: 4px; margin: 10px 0;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.6);
         }
         .map-cell {
-            aspect-ratio: 1; background: #166534; border: 1px solid #14532d;
+            aspect-ratio: 1; 
+            background: linear-gradient(135deg, #228b22, #006400); 
+            border: 2px solid #004d00;
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.25), inset 0 -2px 4px rgba(0,0,0,0.4);
+            border-radius: 4px;
             display: flex; justify-content: center; align-items: center; font-size: 9px; cursor: pointer; position: relative;
         }
-        .map-cell.revealed { background: #22c55e !important; }
-        .map-cell.movable { background: #facc15; animation: pulseCell 0.8s infinite alternate; } 
-        .map-cell.approachable { background: #0284c7; animation: pulseApproach 0.8s infinite alternate; } 
+        .map-cell.movable { background: linear-gradient(135deg, #facc15, #ca8a04) !important; animation: pulseCell 0.8s infinite alternate; } 
+        .map-cell.approachable { background: linear-gradient(135deg, #0284c7, #0369a1) !important; animation: pulseApproach 0.8s infinite alternate; } 
         .map-cell.start-select { border: 2px dashed #ffea00; background: #ca8a04; }
 
         @keyframes pulseCell {
-            from { background: #eab308; }
-            to { background: #fef08a; }
+            from { background: linear-gradient(135deg, #facc15, #ca8a04); }
+            to { background: linear-gradient(135deg, #fef08a, #eab308); }
         }
 
         @keyframes pulseApproach {
-            from { background: #0284c7; }
-            to { background: #38bdf8; }
+            from { background: linear-gradient(135deg, #0284c7, #0369a1); }
+            to { background: linear-gradient(135deg, #38bdf8, #0284c7); }
         }
 
         .player-token {
-            width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; object-fit: cover;
-            position: absolute; z-index: 10; box-shadow: 0 0 6px #000;
+            width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff; object-fit: cover;
+            position: absolute; z-index: 10; box-shadow: 0 0 8px #000;
         }
         .player-token.trapped { filter: hue-rotate(240deg) saturate(300%); border-color: #00f0ff; }
+
+        /* 아케이드 메시지 박스 */
+        .arcade-msg-box {
+            background: #000; border: 2px solid #00f0ff; color: #00f0ff; padding: 8px; margin: 8px 0;
+            border-radius: 8px; font-size: 0.85rem; min-height: 42px; display: flex; align-items: center;
+            justify-content: center; text-align: center; box-shadow: inset 0 0 10px rgba(0,240,255,0.3);
+        }
+
+        /* 남은 아이템 현황 바 */
+        .status-bar {
+            display: flex; justify-content: space-around; background: rgba(0,0,0,0.4); padding: 6px;
+            border-radius: 6px; font-size: 0.75rem; margin-bottom: 6px; border: 1px solid #4ade80; color: #a4e400;
+        }
 
         .btn-main {
             width: 100%; padding: 12px; background: linear-gradient(135deg, #ff0077, #ffea00);
@@ -100,10 +118,10 @@
                 1️⃣ 캐릭터를 골라주세요! (이름 선택)
             </div>
 
-            <!-- 1단계: 이름 선택 그리드 -->
+            <!-- 1단계: 이름 선택 -->
             <div class="select-grid" id="name-select-container"></div>
 
-            <!-- 2단계: 크아 캐릭터 선택 그리드 (처음에 숨김) -->
+            <!-- 2단계: 크아 캐릭터 선택 -->
             <div id="char-select-section" style="display:none;">
                 <div style="font-size:0.85rem; color:#ffea00; margin-bottom:6px;">
                     2️⃣ 게임 캐릭터를 골라주세요!
@@ -111,7 +129,7 @@
                 <div class="select-grid" id="char-select-container"></div>
             </div>
             
-            <!-- 3단계: 시작 위치 선택 맵 (처음에 숨김) -->
+            <!-- 3단계: 시작 위치 선택 맵 -->
             <div id="map-select-section" style="display:none;">
                 <div style="font-size:0.85rem; color:#ffea00; margin-bottom:6px;">
                     3️⃣ 9x9 맵에서 시작할 위치를 선택하세요!
@@ -137,7 +155,18 @@
             </div>
 
             <div class="title-flash" style="font-size:1.4rem;">이번주 GOAL = CR 30%</div>
-            <div id="move-instruction" style="font-size:0.85rem; color:#00f0ff; margin-bottom:4px;">[ 판매 또는 어프로치 버튼을 눌러 행동하세요! ]</div>
+            
+            <!-- 실시간 남은 아이템 현황 바 -->
+            <div class="status-bar" id="item-status-bar">
+                <span id="stat-treasure">🎁 남은 보물: 5개</span>
+                <span id="stat-trap">💥 남은 함정: 3개</span>
+                <span id="stat-event">✨ 남은 이벤트: 5개</span>
+            </div>
+
+            <!-- 아케이드 메시지 출력 박스 -->
+            <div class="arcade-msg-box" id="arcade-msg">
+                [안내] 게임에 입장했습니다! 행동을 선택하세요.
+            </div>
 
             <div class="map-grid" id="game-map-grid"></div>
 
@@ -179,10 +208,8 @@
     }
     const todayStr = getTodayString();
 
-    // 팀원 이름 11명 (기존 10명 + 한솔)
     const teamNames = ["윤정", "유진", "지인", "혜인", "성경", "채령", "주하", "정환", "선우", "재민", "한솔"];
     
-    // 크아 캐릭터 8종 (이름과 이미지 파일 매칭)
     const arcadeCharacters = [
         { name: "다오", img: "다오.PNG" },
         { name: "디지니", img: "디지니.PNG" },
@@ -201,6 +228,14 @@
     let myMovesLeft = 0;        
     let myApproachesLeft = 0;   
 
+    function showArcadeMessage(msg, color = "#00f0ff") {
+        const box = document.getElementById('arcade-msg');
+        if (box) {
+            box.style.color = color;
+            box.innerText = msg;
+        }
+    }
+
     function initSetup() {
         renderNameSelection();
         if (myName) {
@@ -208,7 +243,6 @@
         }
     }
 
-    // 1단계: 이름 선택 리스트 렌더링
     function renderNameSelection() {
         const grid = document.getElementById('name-select-container');
         if (!grid) return;
@@ -229,13 +263,11 @@
         document.getElementById(`name-card-${idx}`).classList.add('selected');
         selectedName = name;
 
-        // 2단계 크아 캐릭터 선택 화면 노출
         document.getElementById('setup-instruction').innerText = "2️⃣ 게임 캐릭터를 골라주세요!";
         document.getElementById('char-select-section').style.display = 'block';
         renderCharSelection();
     }
 
-    // 2단계: 크아 캐릭터 선택 리스트 렌더링
     function renderCharSelection() {
         const grid = document.getElementById('char-select-container');
         if (!grid) return;
@@ -256,7 +288,6 @@
         document.getElementById(`char-card-${idx}`).classList.add('selected');
         selectedCharObj = { name: charName, img: charImg };
 
-        // 3단계 시작 위치 맵 선택 화면 노출
         document.getElementById('setup-instruction').innerText = "3️⃣ 9x9 맵에서 시작할 위치를 선택하세요!";
         document.getElementById('map-select-section').style.display = 'block';
         renderSetupMap();
@@ -304,23 +335,7 @@
                 method: 'PUT',
                 body: JSON.stringify(playerData)
             }).then(() => {
-                markCellRevealed(Number(selectedStartPos));
                 checkAndInitDailyMap();
-            });
-        });
-    }
-
-    function markCellRevealed(pos) {
-        fetch(`${FIREBASE_URL}arcade_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
-            mapData = mapData || { cells: {}, revealed: [] };
-            let revList = mapData.revealed || [];
-            if (!revList.includes(pos)) {
-                revList.push(pos);
-            }
-            mapData.revealed = revList;
-            fetch(`${FIREBASE_URL}arcade_treasure_map/${todayStr}.json`, {
-                method: 'PUT',
-                body: JSON.stringify(mapData)
             });
         });
     }
@@ -339,6 +354,7 @@
         });
     }
 
+    // 보물 5개, 함정 3개, 이벤트 5개 배치 설정
     function checkAndInitDailyMap() {
         fetch(`${FIREBASE_URL}arcade_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
             if (!mapData || !mapData.cells) {
@@ -346,13 +362,12 @@
                 indices.sort(() => Math.random() - 0.5);
                 
                 const cellsMap = {};
-                for(let i=0; i<3; i++) cellsMap[indices[i]] = 'treasure';
-                for(let i=3; i<5; i++) cellsMap[indices[i]] = 'trap';
-                for(let i=5; i<8; i++) cellsMap[indices[i]] = 'event';
+                for(let i=0; i<5; i++) cellsMap[indices[i]] = 'treasure';     // 보물 5개
+                for(let i=5; i<8; i++) cellsMap[indices[i]] = 'trap';         // 함정 3개
+                for(let i=8; i<13; i++) cellsMap[indices[i]] = 'event';       // 이벤트 5개
 
                 const initialMap = {
-                    cells: cellsMap,
-                    revealed: []
+                    cells: cellsMap
                 };
 
                 fetch(`${FIREBASE_URL}arcade_treasure_map/${todayStr}.json`, {
@@ -382,7 +397,7 @@
             fetch(`${FIREBASE_URL}arcade_treasure_users.json`).then(res => res.json()),
             fetch(`${FIREBASE_URL}arcade_treasure_map/${todayStr}.json`).then(res => res.json())
         ]).then(([players, mapData]) => {
-            mapData = mapData || { cells: {}, revealed: [] };
+            mapData = mapData || { cells: {} };
             renderGameMap(players || {}, mapData);
             renderDashboard(players || {});
             updateMyStatus(players && players[myName] ? players[myName] : null);
@@ -413,32 +428,32 @@
         if (!grid) return;
         grid.innerHTML = "";
 
-        const revealedList = mapData.revealed || [];
         const cellsInfo = mapData.cells || {};
         const myData = players[myName];
         const myPos = myData ? Number(myData.position) : null;
 
-        const remainingTreasures = Object.values(cellsInfo).filter(val => val === 'treasure').length;
-        if (remainingTreasures === 0 && Object.keys(cellsInfo).length > 0) {
-            document.getElementById('move-instruction').innerHTML = "🏆 <b style='color:#ffea00;'>모든 보물을 찾았습니다! 게임 완료!</b>";
-        } else {
-            let guideMsg = "[ 판매 또는 어프로치 버튼을 눌러 행동하세요! ]";
-            if (myMovesLeft > 0) {
-                guideMsg = `✨ <b style='color:#ffea00;'>남은 이동 횟수: ${myMovesLeft}회 (이동할 인접 칸 클릭)</b>`;
-            } else if (myApproachesLeft > 0) {
-                guideMsg = `🔍 <b style='color:#38bdf8;'>남은 어프로치 횟수: ${myApproachesLeft}회 (조사할 맵 전체 중 아무 칸이나 클릭)</b>`;
-            }
-            document.getElementById('move-instruction').innerHTML = guideMsg;
+        // 남은 개수 계산 및 현황판 업데이트
+        let tCount = 0, trapCount = 0, eCount = 0;
+        Object.values(cellsInfo).forEach(val => {
+            if (val === 'treasure') tCount++;
+            if (val === 'trap') trapCount++;
+            if (val === 'event') eCount++;
+        });
+
+        document.getElementById('stat-treasure').innerText = `🎁 남은 보물: ${tCount}개`;
+        document.getElementById('stat-trap').innerText = `💥 남은 함정: ${trapCount}개`;
+        document.getElementById('stat-event').innerText = `✨ 남은 이벤트: ${eCount}개`;
+
+        if (tCount === 0 && Object.keys(cellsInfo).length > 0) {
+            showArcadeMessage("🏆 모든 보물을 찾았습니다! 게임 완료!", "#ffea00");
+        } else if (myMovesLeft === 0 && myApproachesLeft === 0) {
+            showArcadeMessage("[안내] 판매 또는 어프로치 버튼을 눌러 행동하세요!");
         }
 
         for (let i = 0; i < 81; i++) {
             const cell = document.createElement('div');
             cell.className = 'map-cell';
             
-            if (revealedList.includes(i) || revealedList.includes(String(i))) {
-                cell.classList.add('revealed');
-            }
-
             if (myMovesLeft > 0 && myPos !== null && isAdjacent(myPos, i)) {
                 cell.classList.add('movable');
                 cell.onclick = () => executeMove(i);
@@ -475,15 +490,13 @@
     function executeMove(targetIdx) {
         if (myMovesLeft <= 0 || !myName) return;
 
-        fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
+        fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
             if (!me) return;
             me.position = targetIdx;
             myMovesLeft--;
 
-            markCellRevealed(targetIdx);
-
-            fetch(`${FIREBASE_URL}arcade_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
-                mapData = mapData || { cells: {}, revealed: [] };
+            fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
+                mapData = mapData || { cells: {} };
                 const cellsInfo = mapData.cells || {};
                 const cellType = cellsInfo[targetIdx];
 
@@ -494,35 +507,35 @@
                     const randomReward = rewards[Math.floor(Math.random() * rewards.length)];
                     me.total_won = (Number(me.total_won) || 0) + randomReward;
 
-                    alert(`🎁 대박! ${targetIdx}번 칸에서 보물을 발견했습니다! 코스머니 +${randomReward.toLocaleString()}원 획득!`);
+                    showArcadeMessage(`🎁 [보물 발견!] ${targetIdx}번 칸에서 코스머니 +${randomReward.toLocaleString()}원 획득!`, "#ffea00");
                     delete cellsInfo[targetIdx]; 
                 } else if (cellType === 'trap') {
                     me.status = 'trapped';
                     me.trap_count = 0;
-                    alert(`💥 함정에 빠졌습니다! 물풍선에 갇혔습니다! 탈출하려면 판매(Sale)를 2번 성공해야 합니다.`);
+                    showArcadeMessage(`💥 [함정 당첨!] 물풍선에 갇혔습니다! 판매 2회로 탈출하세요!`, "#ff4d4d");
                     delete cellsInfo[targetIdx]; 
                 } else if (cellType === 'event') {
                     const randEvt = Math.floor(Math.random() * 3);
                     if (randEvt === 0) {
                         myMovesLeft += 3;
-                        alert(`✨ [이벤트 당첨!] 부스터 발동! 추가 이동 횟수 +3회 획득!`);
+                        showArcadeMessage(`✨ [이벤트 당첨!] 부스터 발동! 추가 이동 +3회!`, "#38bdf8");
                     } else if (randEvt === 1) {
                         myMovesLeft += 1;
-                        alert(`✨ [이벤트 당첨!] 정찰 안경 획득! 추가 이동 횟수 +1회 획득!`);
+                        showArcadeMessage(`✨ [이벤트 당첨!] 정찰 안경! 추가 이동 +1회!`, "#38bdf8");
                     } else {
                         myMovesLeft += 1;
-                        alert(`✨ [이벤트 당첨!] 행운의 보너스! 추가 이동 횟수 +1회 획득!`);
+                        showArcadeMessage(`✨ [이벤트 당첨!] 행운의 보너스! 추가 이동 +1회!`, "#38bdf8");
                     }
                     delete cellsInfo[targetIdx]; 
                 } else {
-                    alert(`👣 ${targetIdx}번 칸으로 이동했습니다.`);
+                    showArcadeMessage(`👣 ${targetIdx}번 칸으로 이동했습니다.`);
                 }
 
                 mapData.cells = cellsInfo;
 
                 Promise.all([
-                    fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`, { method: 'PUT', body: JSON.stringify(me) }),
-                    fetch(`${FIREBASE_URL}arcade_treasure_map/${todayStr}.json`, { method: 'PUT', body: JSON.stringify(mapData) })
+                    fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`, { method: 'PUT', body: JSON.stringify(me) }),
+                    fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`, { method: 'PUT', body: JSON.stringify(mapData) })
                 ]).then(() => syncGameData());
             });
         });
@@ -531,24 +544,29 @@
     function executeApproach(targetIdx) {
         if (myApproachesLeft <= 0 || !myName) return;
 
-        fetch(`${FIREBASE_URL}arcade_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
-            mapData = mapData || { cells: {}, revealed: [] };
+        fetch(`${FIREBASE_URL}osam_treasure_map/${todayStr}.json`).then(res => res.json()).then(mapData => {
+            mapData = mapData || { cells: {} };
             const cellsInfo = mapData.cells || {};
             const cellType = cellsInfo[targetIdx];
 
             myApproachesLeft--;
 
-            let resultMsg = `🔍 [${targetIdx}번 칸 조사 결과]\n`;
+            let resultMsg = `🔍 [${targetIdx}번 칸 조사 결과] `;
+            let textColor = "#38bdf8";
             if (cellType === 'treasure') {
                 resultMsg += "🎁 찬란한 보물의 기운이 감지됩니다!";
+                textColor = "#ffea00";
             } else if (cellType === 'trap') {
                 resultMsg += "💥 위험한 함정(물풍선)의 기운이 느껴집니다!";
+                textColor = "#ff4d4d";
             } else if (cellType === 'event') {
                 resultMsg += "✨ 신비로운 이벤트 기운이 감지됩니다!";
+                textColor = "#38bdf8";
             } else {
                 resultMsg += "아무것도 없는 안전한 빈 칸입니다.";
+                textColor = "#a4e400";
             }
-            alert(resultMsg);
+            showArcadeMessage(resultMsg, textColor);
 
             syncGameData();
         });
@@ -564,7 +582,7 @@
             return;
         }
 
-        const sorted = Object.values(players).filter(p => p && p.name).sort((a,b) => (b.treasure_found || 0) - (a.treasure_found || 0) || (b.sale_count || 0) - (a.sale_count || 0));
+        const sorted = Object.values(players).filter(p => p && p.name).sort((a,b) => (b.treasure_found || 0) - (a.treasure_found || 0) || (b.sale_count || 0) - (b.sale_count || 0));
         
         if (sorted.length === 0) {
             tbody.innerHTML = `<tr><td colspan="5" style="color:#aaa; text-align:center;">기록이 없습니다.</td></tr>`;
@@ -586,14 +604,14 @@
 
     function doApproach() {
         if (!myName) return;
-        fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
+        fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
             if(!me) { alert("플레이어 정보를 찾을 수 없습니다."); return; }
             me.approach_count = (Number(me.approach_count) || 0) + 1;
             myApproachesLeft += 1;
             
-            alert("🔍 어프로치 성공! 맵 전체 중 조사하고 싶은 칸을 아무 곳이나 클릭하세요.");
+            showArcadeMessage("🔍 어프로치 성공! 맵 전체 중 조사하고 싶은 칸을 클릭하세요.", "#38bdf8");
 
-            fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`, {
+            fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`, {
                 method: 'PUT',
                 body: JSON.stringify(me)
             }).then(() => syncGameData());
@@ -602,7 +620,7 @@
 
     function doSale() {
         if (!myName) return;
-        fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
+        fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
             if(!me) { alert("플레이어 정보를 찾을 수 없습니다."); return; }
             
             me.position = Number(me.position) || 0;
@@ -612,20 +630,20 @@
                 if (me.trap_count >= 2) {
                     me.status = 'active';
                     me.trap_count = 0;
-                    alert("💧 물풍선 탈출 성공! 이동권 1회가 주어집니다!");
+                    showArcadeMessage("💧 물풍선 탈출 성공! 이동권 1회가 주어집니다!", "#38bdf8");
                     myMovesLeft += 1;
                 } else {
-                    alert(`💧 판매 1회 완료! 함정 탈출까지 앞으로 판매 1번 남았습니다.`);
+                    showArcadeMessage(`💧 판매 1회 완료! 함정 탈출까지 앞으로 판매 1번 남았습니다.`, "#ff4d4d");
                 }
-                fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`, { method: 'PUT', body: JSON.stringify(me) }).then(() => syncGameData());
+                fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`, { method: 'PUT', body: JSON.stringify(me) }).then(() => syncGameData());
                 return;
             }
 
             me.sale_count = (Number(me.sale_count) || 0) + 1;
             myMovesLeft += 1;
-            alert(`👣 판매 성공! 이동권 +1회 획득! 맵에서 이동할 인접한 칸을 클릭하세요.`);
+            showArcadeMessage("👣 판매 성공! 이동권 +1회 획득! 맵에서 인접한 칸을 클릭하세요.", "#a4e400");
 
-            fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`, {
+            fetch(`${FIREBASE_URL}osam_treasure_users/${myName}.json`, {
                 method: 'PUT',
                 body: JSON.stringify(me)
             }).then(() => syncGameData());
