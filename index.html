@@ -36,7 +36,7 @@
         .select-card.selected { border-color: #ff0077; background: rgba(255,0,119,0.2); }
         .card-img { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ffea00; object-fit: cover; flex-shrink: 0; }
 
-        /* 크아 여름 해변 테마 맵 스타일 */
+        /* 크아 여름 해변 테마 맵 */
         .map-grid {
             display: grid; grid-template-columns: repeat(9, 1fr); gap: 3px;
             background: #d4a373; border: 4px solid #00b4d8; border-radius: 12px; padding: 6px; margin: 10px 0;
@@ -51,7 +51,6 @@
             display: flex; justify-content: center; align-items: center; font-size: 10px; cursor: pointer; position: relative;
             color: #5c4033; font-weight: bold;
         }
-        /* 바다 블록 패턴 스타일 */
         .map-cell.ocean-block {
             background: linear-gradient(135deg, #00b4d8, #0077b6);
             border-color: #03045e;
@@ -59,16 +58,16 @@
             box-shadow: inset 0 2px 4px rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.5);
         }
 
-        /* 큼직하고 시원한 여름 구조물 스타일 (야자수, 파라솔) */
+        /* 야자수 & 파라솔 구조물 */
         .map-cell.obstacle {
             background: linear-gradient(135deg, #caf0f8, #90e0ef) !important;
             border-color: #0077b6 !important;
             cursor: not-allowed;
-            font-size: 18px; /* 구조물 이모지 큼직하게 */
+            font-size: 18px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 2px 4px rgba(255,255,255,0.8);
         }
 
-        /* 판매 성공 후 이동 가능한 칸: 강렬한 네온 핫핑크 테두리 & 애니메이션 */
+        /* 이동 가능 칸 */
         .map-cell.movable { 
             background: linear-gradient(135deg, #ff0077, #ff5c8a) !important; 
             border: 3px dashed #ffea00 !important;
@@ -233,8 +232,10 @@
     }
     const todayStr = getTodayString();
 
-    const teamNames = ["윤정", "유진", "지인", "혜인", "성경", "채령", "주하", "정환", "선우", "재민", "한솔"];
+    // 13명의 팀원 (진호, 영서 포함)
+    const teamNames = ["윤정", "유진", "지인", "혜인", "성경", "채령", "주하", "정환", "선우", "재민", "한솔", "진호", "영서"];
     
+    // 크아 캐릭터 8종
     const arcadeCharacters = [
         { name: "다오", img: "다오.PNG" },
         { name: "디지니", img: "디지니.PNG" },
@@ -264,7 +265,7 @@
     function initSetup() {
         renderNameSelection();
         if (myName) {
-            checkUserAlreadyStarted();
+            checkUserAlreadyStartedToday();
         }
     }
 
@@ -323,7 +324,6 @@
         if (!mapGrid) return;
         mapGrid.innerHTML = "";
 
-        // 여름 해변 구조물(야자수, 파라솔) 고정 인덱스
         const obstacles = [10, 22, 36, 44, 58, 70, 18, 62, 4, 76];
         const obstacleIcons = ["🌴", "⛱️", "🌴", "⛱️", "🌴", "⛱️", "🌴", "⛱️", "🌴", "⛱️"];
 
@@ -331,7 +331,6 @@
             const cell = document.createElement('div');
             cell.className = 'map-cell';
             
-            // 바다 블록과 모래사장이 어우러진 여름 감성 패턴 부여
             if (i % 4 === 0 || i % 4 === 3) {
                 cell.classList.add('ocean-block');
             }
@@ -359,40 +358,52 @@
         myName = selectedName;
         localStorage.setItem('arcade_treasure_user', myName);
 
+        // 1. 전기간 누적 데이터 가져와서 기본 정보 갱신 (누적치 영구 보존)
         fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`).then(res => res.json()).then(existing => {
-            const playerData = {
+            const userCumulative = {
                 name: myName,
                 characterName: selectedCharObj.name,
                 avatar: selectedCharObj.img,
-                position: Number(selectedStartPos) || 0,
-                status: 'active',
-                trap_count: 0,
                 approach_count: existing && existing.approach_count !== undefined ? Number(existing.approach_count) : 0,
                 sale_count: existing && existing.sale_count !== undefined ? Number(existing.sale_count) : 0,
                 treasure_found: existing && existing.treasure_found !== undefined ? Number(existing.treasure_found) : 0,
                 total_won: existing && existing.total_won !== undefined ? Number(existing.total_won) : 0
             };
 
-            fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`, {
-                method: 'PUT',
-                body: JSON.stringify(playerData)
-            }).then(() => {
+            // 2. 오늘의 세션 데이터(맵 위치 & 상태) 생성 (오늘 출근한 사람만 맵에 등장)
+            const todaySession = {
+                name: myName,
+                characterName: selectedCharObj.name,
+                avatar: selectedCharObj.img,
+                position: Number(selectedStartPos) || 0,
+                status: 'active',
+                trap_count: 0
+            };
+
+            Promise.all([
+                fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`, { method: 'PUT', body: JSON.stringify(userCumulative) }),
+                fetch(`${FIREBASE_URL}arcade_daily_sessions/${todayStr}/${myName}.json`, { method: 'PUT', body: JSON.stringify(todaySession) })
+            ]).then(() => {
                 checkAndInitDailyMap();
             });
         });
     }
 
-    function checkUserAlreadyStarted() {
-        fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`).then(res => res.json()).then(data => {
-            if (data && data.position !== undefined && data.name) {
-                selectedName = data.name;
-                selectedCharObj = { name: data.characterName, img: data.avatar };
+    // 오늘 이미 출근 등록했는지 체크
+    function checkUserAlreadyStartedToday() {
+        fetch(`${FIREBASE_URL}arcade_daily_sessions/${todayStr}/${myName}.json`).then(res => res.json()).then(todayData => {
+            if (todayData && todayData.position !== undefined) {
+                selectedName = todayData.name;
+                selectedCharObj = { name: todayData.characterName, img: todayData.avatar };
                 startMainGame();
             } else {
-                localStorage.removeItem('arcade_treasure_user');
+                // 날짜가 바뀌었으면 오늘 새로 캐릭터를 고르고 시작 위치를 잡을 수 있게 함
+                document.getElementById('setup-screen').style.display = 'block';
+                document.getElementById('game-screen').style.display = 'none';
             }
         }).catch(() => {
-            localStorage.removeItem('arcade_treasure_user');
+            document.getElementById('setup-screen').style.display = 'block';
+            document.getElementById('game-screen').style.display = 'none';
         });
     }
 
@@ -437,22 +448,23 @@
 
     function syncGameData() {
         Promise.all([
-            fetch(`${FIREBASE_URL}arcade_treasure_users.json`).then(res => res.json()),
-            fetch(`${FIREBASE_URL}arcade_treasure_map/${todayStr}.json`).then(res => res.json())
-        ]).then(([players, mapData]) => {
+            fetch(`${FIREBASE_URL}arcade_treasure_users.json`).then(res => res.json()),              // 1. 전기간 누적 기록
+            fetch(`${FIREBASE_URL}arcade_daily_sessions/${todayStr}.json`).then(res => res.json()), // 2. 오늘 출근자 세션(맵 위치)
+            fetch(`${FIREBASE_URL}arcade_treasure_map/${todayStr}.json`).then(res => res.json())    // 3. 오늘의 맵 데이터
+        ]).then(([cumulativeUsers, todaySessions, mapData]) => {
             mapData = mapData || { cells: {}, obstacles: [] };
-            renderGameMap(players || {}, mapData);
-            renderDashboard(players || {});
-            updateMyStatus(players && players[myName] ? players[myName] : null);
+            renderGameMap(todaySessions || {}, mapData);
+            renderDashboard(cumulativeUsers || {});
+            updateMyStatus(todaySessions && todaySessions[myName] ? todaySessions[myName] : null);
         }).catch(err => console.log("Sync error:", err));
     }
 
-    function updateMyStatus(me) {
-        if (!me) return;
+    function updateMyStatus(mySession) {
+        if (!mySession) return;
         const badge = document.getElementById('player-status-badge');
         if (!badge) return;
-        if (me.status === 'trapped') {
-            badge.innerText = `물풍선 갇힘! (판매 ${me.trap_count}/2 필요) 💧`;
+        if (mySession.status === 'trapped') {
+            badge.innerText = `물풍선 갇힘! (판매 ${mySession.trap_count}/2 필요) 💧`;
             badge.style.background = '#dc2626';
         } else if (myMovesLeft > 0) {
             badge.innerText = `이동 가능 (${myMovesLeft}회) ✨`;
@@ -466,7 +478,7 @@
         }
     }
 
-    function renderGameMap(players, mapData) {
+    function renderGameMap(todaySessions, mapData) {
         const grid = document.getElementById('game-map-grid');
         if (!grid) return;
         grid.innerHTML = "";
@@ -474,8 +486,8 @@
         const cellsInfo = mapData.cells || {};
         const obstacles = mapData.obstacles || [10, 22, 36, 44, 58, 70, 18, 62, 4, 76];
         const obstacleIcons = ["🌴", "⛱️", "🌴", "⛱️", "🌴", "⛱️", "🌴", "⛱️", "🌴", "⛱️"];
-        const myData = players[myName];
-        const myPos = myData ? Number(myData.position) : null;
+        const mySession = todaySessions[myName];
+        const myPos = mySession ? Number(mySession.position) : null;
 
         let tCount = 0, trapCount = 0, eCount = 0;
         Object.values(cellsInfo).forEach(val => {
@@ -521,8 +533,9 @@
                 }
             }
 
-            if (players) {
-                Object.values(players).forEach(p => {
+            // 오늘 접속한 플레이어만 맵에 토큰으로 표시
+            if (todaySessions) {
+                Object.values(todaySessions).forEach(p => {
                     if (p && Number(p.position) === i && p.name) {
                         const token = document.createElement('img');
                         token.className = `player-token ${p.status === 'trapped' ? 'trapped' : ''}`;
@@ -556,40 +569,46 @@
                 return;
             }
 
-            fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
-                if (!me) {
-                    me = {
+            Promise.all([
+                fetch(`${FIREBASE_URL}arcade_daily_sessions/${todayStr}/${myName}.json`).then(res => res.json()),
+                fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`).then(res => res.json())
+            ]).then(([mySession, userCumul]) => {
+                if (!mySession) {
+                    mySession = {
                         name: selectedName || myName,
                         characterName: selectedCharObj ? selectedCharObj.name : "다오",
                         avatar: selectedCharObj ? selectedCharObj.img : "다오.PNG",
                         position: targetIdx,
                         status: 'active',
-                        trap_count: 0,
-                        approach_count: 0,
-                        sale_count: 1,
-                        treasure_found: 0,
-                        total_won: 0
+                        trap_count: 0
                     };
                 } else {
-                    me.position = targetIdx;
+                    mySession.position = targetIdx;
                 }
                 myMovesLeft--;
+
+                userCumul = userCumul || {
+                    name: myName,
+                    characterName: selectedCharObj ? selectedCharObj.name : "다오",
+                    avatar: selectedCharObj ? selectedCharObj.img : "다오.PNG",
+                    approach_count: 0, sale_count: 0, treasure_found: 0, total_won: 0
+                };
 
                 const cellsInfo = mapData.cells || {};
                 const cellType = cellsInfo[targetIdx];
 
                 if (cellType === 'treasure') {
-                    me.treasure_found = (Number(me.treasure_found) || 0) + 1;
+                    userCumul.treasure_found = (Number(userCumul.treasure_found) || 0) + 1;
                     
                     const rewards = [1000, 2000, 3000];
                     const randomReward = rewards[Math.floor(Math.random() * rewards.length)];
-                    me.total_won = (Number(me.total_won) || 0) + randomReward;
+                    userCumul.total_won = (Number(userCumul.total_won) || 0) + randomReward;
 
                     showArcadeMessage(`🎁 [보물 발견!] ${targetIdx}번 칸에서 코스머니 +${randomReward.toLocaleString()}원 획득!`, "#ffea00");
                     delete cellsInfo[targetIdx]; 
                 } else if (cellType === 'trap') {
-                    me.status = 'trapped';
-                    me.trap_count = 0;
+                    mySession.status = 'trapped';
+                    mySession.trap_count = 0;
                     showArcadeMessage(`💥 [함정 당첨!] 물풍선에 갇혔습니다! 판매 2회로 탈출하세요!`, "#ff4d4d");
                     delete cellsInfo[targetIdx]; 
                 } else if (cellType === 'event') {
@@ -612,7 +631,8 @@
                 mapData.cells = cellsInfo;
 
                 Promise.all([
-                    fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`, { method: 'PUT', body: JSON.stringify(me) }),
+                    fetch(`${FIREBASE_URL}arcade_daily_sessions/${todayStr}/${myName}.json`, { method: 'PUT', body: JSON.stringify(mySession) }),
+                    fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`, { method: 'PUT', body: JSON.stringify(userCumul) }),
                     fetch(`${FIREBASE_URL}arcade_treasure_map/${todayStr}.json`, { method: 'PUT', body: JSON.stringify(mapData) })
                 ]).then(() => syncGameData());
             });
@@ -655,27 +675,28 @@
         });
     }
 
-    function renderDashboard(players) {
+    // 전기간 누적 대시보드 렌더링
+    function renderDashboard(cumulativeUsers) {
         const tbody = document.getElementById('dashboard-tbody');
         if (!tbody) return;
         tbody.innerHTML = "";
         
-        if (!players || Object.keys(players).length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="color:#aaa; text-align:center;">아직 플레이어가 없습니다.</td></tr>`;
+        if (!cumulativeUsers || Object.keys(cumulativeUsers).length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="color:#aaa; text-align:center;">아직 플레이어 기록이 없습니다.</td></tr>`;
             return;
         }
 
-        const sorted = Object.values(players).filter(p => p && p.name).sort((a,b) => (b.treasure_found || 0) - (a.treasure_found || 0) || (b.sale_count || 0) - (a.sale_count || 0));
+        const sorted = Object.values(cumulativeUsers).filter(p => p && p.name).sort((a,b) => (b.treasure_found || 0) - (a.treasure_found || 0) || (b.sale_count || 0) - (a.sale_count || 0));
         
         if (sorted.length === 0) {
             tbody.innerHTML = `<tr><td colspan="5" style="color:#aaa; text-align:center;">기록이 없습니다.</td></tr>`;
             return;
         }
 
-        sorted.forEach((p, idx) => {
+        sorted.forEach((p) => {
             tbody.innerHTML += `
                 <tr style="${p.name === myName ? 'background:rgba(0,240,255,0.1); font-weight:bold;' : ''}">
-                    <td>${p.name} (${p.characterName})</td>
+                    <td>${p.name} (${p.characterName || '다오'})</td>
                     <td>${p.approach_count || 0}</td>
                     <td>${p.sale_count || 0}</td>
                     <td>🎁 ${p.treasure_found || 0}</td>
@@ -687,11 +708,11 @@
 
     function doApproach() {
         if (!myName) return;
-        fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
-            if(!me) {
-                me = { name: myName, characterName: selectedCharObj ? selectedCharObj.name : "다오", avatar: selectedCharObj ? selectedCharObj.img : "다오.PNG", position: 0, approach_count: 1 };
+        fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`).then(res => res.json()).then(userCumul => {
+            if(!userCumul) {
+                userCumul = { name: myName, characterName: selectedCharObj ? selectedCharObj.name : "다오", avatar: selectedCharObj ? selectedCharObj.img : "다오.PNG", approach_count: 1, sale_count: 0, treasure_found: 0, total_won: 0 };
             } else {
-                me.approach_count = (Number(me.approach_count) || 0) + 1;
+                userCumul.approach_count = (Number(userCumul.approach_count) || 0) + 1;
             }
             myApproachesLeft += 1;
             
@@ -699,51 +720,55 @@
 
             fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`, {
                 method: 'PUT',
-                body: JSON.stringify(me)
+                body: JSON.stringify(userCumul)
             }).then(() => syncGameData());
         });
     }
 
     function doSale() {
         if (!myName) return;
-        fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`).then(res => res.json()).then(me => {
-            if(!me) {
-                me = { name: myName, characterName: selectedCharObj ? selectedCharObj.name : "다오", avatar: selectedCharObj ? selectedCharObj.img : "다오.PNG", position: 0, sale_count: 1, status: 'active' };
-            } else {
-                me.position = Number(me.position) || 0;
+        Promise.all([
+            fetch(`${FIREBASE_URL}arcade_daily_sessions/${todayStr}/${myName}.json`).then(res => res.json()),
+            fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`).then(res => res.json())
+        ]).then(([mySession, userCumul]) => {
+            if(!mySession) {
+                mySession = { name: myName, characterName: selectedCharObj ? selectedCharObj.name : "다오", avatar: selectedCharObj ? selectedCharObj.img : "다오.PNG", position: 0, status: 'active', trap_count: 0 };
+            }
+            if(!userCumul) {
+                userCumul = { name: myName, characterName: selectedCharObj ? selectedCharObj.name : "다오", avatar: selectedCharObj ? selectedCharObj.img : "다오.PNG", approach_count: 0, sale_count: 0, treasure_found: 0, total_won: 0 };
             }
 
-            if (me.status === 'trapped') {
-                me.trap_count = (Number(me.trap_count) || 0) + 1;
-                if (me.trap_count >= 2) {
-                    me.status = 'active';
-                    me.trap_count = 0;
+            userCumul.sale_count = (Number(userCumul.sale_count) || 0) + 1;
+
+            if (mySession.status === 'trapped') {
+                mySession.trap_count = (Number(mySession.trap_count) || 0) + 1;
+                if (mySession.trap_count >= 2) {
+                    mySession.status = 'active';
+                    mySession.trap_count = 0;
                     showArcadeMessage("💧 물풍선 탈출 성공! 해변 이동권 1회가 주어집니다!", "#38bdf8");
                     myMovesLeft += 1;
                 } else {
                     showArcadeMessage(`💧 판매 1회 완료! 함정 탈출까지 앞으로 판매 1번 남았습니다.`, "#ff4d4d");
                 }
-                fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`, { method: 'PUT', body: JSON.stringify(me) }).then(() => syncGameData());
-                return;
+            } else {
+                myMovesLeft += 1;
+                showArcadeMessage("👣 판매 성공! 이동권 +1회 획득! 맵에서 이동할 인접한 칸을 클릭하세요.", "#a4e400");
             }
 
-            me.sale_count = (Number(me.sale_count) || 0) + 1;
-            myMovesLeft += 1;
-            showArcadeMessage("👣 판매 성공! 이동권 +1회 획득! 맵에서 이동할 인접한 칸을 클릭하세요.", "#a4e400");
-
-            fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`, {
-                method: 'PUT',
-                body: JSON.stringify(me)
-            }).then(() => syncGameData());
+            Promise.all([
+                fetch(`${FIREBASE_URL}arcade_daily_sessions/${todayStr}/${myName}.json`, { method: 'PUT', body: JSON.stringify(mySession) }),
+                fetch(`${FIREBASE_URL}arcade_treasure_users/${myName}.json`, { method: 'PUT', body: JSON.stringify(userCumul) })
+            ]).then(() => syncGameData());
         });
     }
 
     function adminReset() {
         const pwd = prompt("관리자 비밀번호를 입력하세요:");
         if (pwd === "253253") {
-            if (confirm("정말로 모든 데이터를 초기화하시겠습니까?")) {
+            if (confirm("정말로 모든 데이터를 초기화하시겠습니까? (누적 대시보드 포함)")) {
                 Promise.all([
                     fetch(`${FIREBASE_URL}arcade_treasure_users.json`, { method: 'DELETE' }),
+                    fetch(`${FIREBASE_URL}arcade_daily_sessions.json`, { method: 'DELETE' }),
                     fetch(`${FIREBASE_URL}arcade_treasure_map.json`, { method: 'DELETE' })
                 ]).then(() => {
                     alert("초기화 완료!");
